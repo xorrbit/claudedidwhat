@@ -17,7 +17,9 @@ interface UseGitDiffReturn {
   refresh: () => void
 }
 
-export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
+const MAX_CACHE_SIZE = 20
+
+export function useGitDiff({ sessionId, cwd }: UseGitDiffOptions): UseGitDiffReturn {
   const [files, setFiles] = useState<ChangedFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<DiffContent | null>(null)
@@ -27,7 +29,35 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
   const selectedFileRef = useRef<string | null>(null)
   const prevCwdRef = useRef<string>(cwd)
   const initialLoadDone = useRef(false)
+  // LRU cache: Map maintains insertion order, so we delete+re-add on access
   const diffCache = useRef<Map<string, DiffContent>>(new Map())
+
+  // Set cache entry with LRU eviction
+  const setCacheEntry = useCallback((key: string, value: DiffContent) => {
+    const cache = diffCache.current
+    // Delete first to update insertion order (makes it most recent)
+    cache.delete(key)
+    cache.set(key, value)
+    // Evict oldest entries if over limit
+    while (cache.size > MAX_CACHE_SIZE) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) {
+        cache.delete(oldest)
+      }
+    }
+  }, [])
+
+  // Get cache entry and mark as recently used
+  const getCacheEntry = useCallback((key: string): DiffContent | undefined => {
+    const cache = diffCache.current
+    const value = cache.get(key)
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      cache.delete(key)
+      cache.set(key, value)
+    }
+    return value
+  }, [])
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -48,6 +78,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
         // Refresh diff content for currently selected file
         try {
           const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFileRef.current)
+          // Read directly without updating LRU (this is a background refresh)
           const cached = diffCache.current.get(selectedFileRef.current)
 
           // Only update if diff actually changed
@@ -58,7 +89,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
           if (hasChanged) {
             setDiffContent(diff)
             if (diff) {
-              diffCache.current.set(selectedFileRef.current, diff)
+              setCacheEntry(selectedFileRef.current, diff)
             } else {
               diffCache.current.delete(selectedFileRef.current)
             }
@@ -73,7 +104,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
     } finally {
       setIsLoading(false)
     }
-  }, [cwd])
+  }, [cwd, setCacheEntry])
 
   // Delay initial load to not block terminal initialization
   useEffect(() => {
@@ -113,8 +144,8 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
     // Capture file path to avoid stale closure issues
     const filePath = selectedFile
 
-    // Check cache first
-    const cached = diffCache.current.get(filePath)
+    // Check cache first (also marks as recently used)
+    const cached = getCacheEntry(filePath)
     if (cached) {
       setDiffContent(cached)
       setIsDiffLoading(false)
@@ -132,7 +163,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
           setDiffContent(diff)
           // Store in cache using captured filePath
           if (diff) {
-            diffCache.current.set(filePath, diff)
+            setCacheEntry(filePath, diff)
           }
         }
       } catch (err) {
@@ -154,22 +185,67 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
       clearTimeout(timer)
       setIsDiffLoading(false)
     }
-  }, [cwd, selectedFile])
+  }, [cwd, selectedFile, getCacheEntry, setCacheEntry])
 
-  // Poll for file changes every 5 seconds
+  // Watch for file changes and refresh git status reactively
   useEffect(() => {
-    const pollInterval = setInterval(() => {
-      loadFiles()
-    }, 5000)
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    let isRefreshing = false
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null
+
+    const debouncedRefresh = () => {
+      // Don't refresh if hidden or already refreshing
+      if (document.hidden || isRefreshing) return
+
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+      // Debounce rapid file changes (e.g., save + format)
+      debounceTimer = setTimeout(async () => {
+        isRefreshing = true
+        try {
+          await loadFiles()
+        } finally {
+          isRefreshing = false
+        }
+      }, 500)
+    }
+
+    // Start file watcher
+    window.electronAPI.fs.watchStart(sessionId, cwd)
+    const unsubscribe = window.electronAPI.fs.onFileChanged((event) => {
+      if (event.sessionId === sessionId) {
+        debouncedRefresh()
+      }
+    })
+
+    // Fallback poll every 60s in case watcher misses something
+    fallbackInterval = setInterval(() => {
+      if (!document.hidden && !isRefreshing) {
+        loadFiles()
+      }
+    }, 60000)
+
+    // Refresh when tab becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        debouncedRefresh()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      clearInterval(pollInterval)
+      if (debounceTimer) clearTimeout(debounceTimer)
+      if (fallbackInterval) clearInterval(fallbackInterval)
+      unsubscribe()
+      window.electronAPI.fs.watchStop(sessionId)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [loadFiles])
+  }, [sessionId, cwd, loadFiles])
 
   const selectFile = useCallback((path: string) => {
-    // Check cache first for instant switching
-    const cached = diffCache.current.get(path)
+    // Check cache first for instant switching (also marks as recently used)
+    const cached = getCacheEntry(path)
     if (cached) {
       // Update both states together to avoid intermediate render with stale content
       setSelectedFile(path)
@@ -178,7 +254,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
     } else {
       setSelectedFile(path)
     }
-  }, [])
+  }, [getCacheEntry])
 
   const refresh = useCallback(() => {
     diffCache.current.clear()

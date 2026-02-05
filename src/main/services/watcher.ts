@@ -30,13 +30,27 @@ export class FileWatcher {
         '**/build/**',
         '**/.next/**',
         '**/coverage/**',
+        '**/.cache/**',
+        '**/vendor/**',
+        '**/target/**',
+        '**/__pycache__/**',
         '**/*.log',
+        '**/*.tmp',
+        '**/.DS_Store',
       ],
       persistent: true,
       ignoreInitial: true,
-      // Use polling for cross-platform reliability
-      usePolling: true,
-      interval: 5000,
+      // Use native fs events (inotify/FSEvents) - much more efficient
+      usePolling: false,
+      // Handle atomic saves (editors that write to temp file then rename)
+      atomic: true,
+      // Slight delay to batch rapid changes
+      awaitWriteFinish: {
+        stabilityThreshold: 300,
+        pollInterval: 100,
+      },
+      // Limit depth to avoid watching deeply nested generated dirs
+      depth: 10,
     })
 
     const instance: WatcherInstance = {

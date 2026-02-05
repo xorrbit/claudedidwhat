@@ -4,6 +4,10 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 
 export class GitService {
+  // Cache main branch per directory (rarely changes during session)
+  private mainBranchCache = new Map<string, { branch: string; timestamp: number }>()
+  private static MAIN_BRANCH_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
   /**
    * Check if a directory is a git repository.
    */
@@ -39,8 +43,15 @@ export class GitService {
 
   /**
    * Detect the main branch (main, master, or default).
+   * Results are cached for 5 minutes to avoid repeated git operations.
    */
   async getMainBranch(dir: string): Promise<string | null> {
+    // Check cache first
+    const cached = this.mainBranchCache.get(dir)
+    if (cached && Date.now() - cached.timestamp < GitService.MAIN_BRANCH_CACHE_TTL) {
+      return cached.branch
+    }
+
     const git = this.getGit(dir)
     if (!git) return null
 
@@ -52,7 +63,9 @@ export class GitService {
           const result = await git.raw(['symbolic-ref', 'refs/remotes/origin/HEAD'])
           const match = result.match(/refs\/remotes\/origin\/(.+)/)
           if (match) {
-            return match[1].trim()
+            const branch = match[1].trim()
+            this.mainBranchCache.set(dir, { branch, timestamp: Date.now() })
+            return branch
           }
         } catch {
           // symbolic-ref might fail if HEAD not set
@@ -65,12 +78,17 @@ export class GitService {
 
       for (const name of commonNames) {
         if (branches.all.includes(name)) {
+          this.mainBranchCache.set(dir, { branch: name, timestamp: Date.now() })
           return name
         }
       }
 
       // Return the current branch as fallback
-      return branches.current || null
+      const branch = branches.current || null
+      if (branch) {
+        this.mainBranchCache.set(dir, { branch, timestamp: Date.now() })
+      }
+      return branch
     } catch (error) {
       console.error('Error getting main branch:', error)
       return null

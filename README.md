@@ -67,6 +67,15 @@ The diff panel on the right side features a side-by-side layout:
 
 Changes are detected in real-time as you edit files. The tab name automatically updates to reflect your current git branch or directory.
 
+### Performance
+
+The diff panel is optimized for large repositories and multi-tab workflows:
+
+- **Event-driven updates**: Uses native file system events (inotify/FSEvents) instead of polling, so git status only refreshes when files actually change
+- **LRU diff cache**: Recently viewed diffs are cached for instant file switching, with automatic eviction to bound memory usage
+- **Visibility-aware**: Background tabs pause file watching and git operations until focused
+- **Smart ignores**: Skips `node_modules`, `.git`, `dist`, `build`, and other generated directories
+
 ## Tech Stack
 
 | Component | Technology |
