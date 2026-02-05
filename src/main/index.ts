@@ -1,4 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+
+// Suppress security warning in dev mode (Vite requires unsafe-eval for HMR)
+if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
+}
 import { join } from 'path'
 import { registerPtyHandlers } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
@@ -32,7 +37,7 @@ function createWindow() {
   // Load the app
   if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    // DevTools can be opened manually with Ctrl+Shift+I or from View menu
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -44,9 +49,11 @@ function createWindow() {
 
 // Register all IPC handlers
 function registerIpcHandlers() {
+  console.log('Registering IPC handlers...')
   registerPtyHandlers(ipcMain)
   registerGitHandlers(ipcMain)
   registerFsHandlers(ipcMain)
+  console.log('IPC handlers registered')
 
   // Directory selection dialog
   ipcMain.handle('fs:selectDirectory', async () => {
@@ -62,9 +69,11 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(() => {
+  console.log('App ready, initializing...')
   createAppMenu()
   registerIpcHandlers()
   createWindow()
+  console.log('Window created')
 
   app.on('activate', () => {
     // On macOS, re-create a window when dock icon is clicked and no windows open

@@ -41,107 +41,182 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const initializedRef = useRef(false)
 
-  // Fit terminal to container
+  // Fit terminal to container (only after initialization)
   const fitTerminal = useCallback(() => {
-    if (fitAddonRef.current && xtermRef.current) {
-      try {
-        fitAddonRef.current.fit()
-        const dims = fitAddonRef.current.proposeDimensions()
-        if (dims) {
-          window.electronAPI.pty.resize({
-            sessionId,
-            cols: dims.cols,
-            rows: dims.rows,
-          })
-        }
-      } catch {
-        // Ignore fit errors during initialization
-      }
-    }
-  }, [sessionId])
-
-  useEffect(() => {
+    if (!fitAddonRef.current || !xtermRef.current || !initializedRef.current) return
     if (!terminalRef.current) return
 
-    // Create terminal instance
-    const terminal = new Terminal({
-      theme: TERMINAL_THEME,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-      fontSize: 13,
-      lineHeight: 1.2,
-      cursorBlink: true,
-      cursorStyle: 'block',
-      allowProposedApi: true,
-    })
+    const rect = terminalRef.current.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
 
-    // Create addons
-    const fitAddon = new FitAddon()
-    const webLinksAddon = new WebLinksAddon()
-
-    terminal.loadAddon(fitAddon)
-    terminal.loadAddon(webLinksAddon)
-
-    // Open terminal in container
-    terminal.open(terminalRef.current)
-
-    // Store references
-    xtermRef.current = terminal
-    fitAddonRef.current = fitAddon
-
-    // Initial fit
-    fitAddon.fit()
-
-    // Spawn PTY
-    const dims = fitAddon.proposeDimensions()
-    window.electronAPI.pty.spawn({
-      sessionId,
-      cwd,
-    }).then(() => {
-      if (dims) {
+    try {
+      fitAddonRef.current.fit()
+      const dims = fitAddonRef.current.proposeDimensions()
+      if (dims && dims.cols > 0 && dims.rows > 0) {
         window.electronAPI.pty.resize({
           sessionId,
           cols: dims.cols,
           rows: dims.rows,
         })
       }
-    })
-
-    // Handle terminal input
-    terminal.onData((data) => {
-      window.electronAPI.pty.input(sessionId, data)
-    })
-
-    // Handle PTY output
-    const unsubscribeData = window.electronAPI.pty.onData((sid, data) => {
-      if (sid === sessionId) {
-        terminal.write(data)
-      }
-    })
-
-    // Handle PTY exit
-    const unsubscribeExit = window.electronAPI.pty.onExit((sid, code) => {
-      if (sid === sessionId) {
-        terminal.write(`\r\n\x1b[90mProcess exited with code ${code}\x1b[0m\r\n`)
-      }
-    })
-
-    // Handle resize
-    const resizeObserver = new ResizeObserver(() => {
-      fitTerminal()
-    })
-
-    if (terminalRef.current) {
-      resizeObserver.observe(terminalRef.current)
+    } catch {
+      // Ignore fit errors
     }
+  }, [sessionId])
+
+  useEffect(() => {
+    const container = terminalRef.current
+    if (!container) return
+
+    let mounted = true
+    let terminal: Terminal | null = null
+    let fitAddon: FitAddon | null = null
+    let resizeObserver: ResizeObserver | null = null
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null
+    let unsubscribeData: (() => void) | null = null
+    let unsubscribeExit: (() => void) | null = null
+
+    // Wait for container to have dimensions before initializing
+    const waitForDimensions = (callback: () => void, attempts = 0) => {
+      if (!mounted) return
+
+      const rect = container.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        callback()
+      } else if (attempts < 100) {
+        // Try again in 20ms, up to 2 seconds
+        setTimeout(() => waitForDimensions(callback, attempts + 1), 20)
+      } else {
+        // Give up waiting, initialize anyway with defaults
+        console.warn('Container never got dimensions, initializing anyway')
+        callback()
+      }
+    }
+
+    const initialize = () => {
+      if (!mounted) return
+
+      // Create terminal instance
+      terminal = new Terminal({
+        theme: TERMINAL_THEME,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        fontSize: 13,
+        lineHeight: 1.2,
+        cursorBlink: true,
+        cursorStyle: 'block',
+        allowProposedApi: true,
+      })
+
+      // Create addons
+      fitAddon = new FitAddon()
+      const webLinksAddon = new WebLinksAddon()
+
+      terminal.loadAddon(fitAddon)
+      terminal.loadAddon(webLinksAddon)
+
+      // Store references before opening
+      xtermRef.current = terminal
+      fitAddonRef.current = fitAddon
+
+      // Open terminal in container
+      terminal.open(container)
+
+      // Handle terminal input
+      terminal.onData((data) => {
+        window.electronAPI.pty.input(sessionId, data)
+      })
+
+      // Handle PTY output
+      unsubscribeData = window.electronAPI.pty.onData((sid, data) => {
+        if (sid === sessionId && terminal) {
+          terminal.write(data)
+        }
+      })
+
+      // Handle PTY exit
+      unsubscribeExit = window.electronAPI.pty.onExit((sid, code) => {
+        if (sid === sessionId && terminal) {
+          terminal.write(`\r\n\x1b[90mProcess exited with code ${code}\x1b[0m\r\n`)
+        }
+      })
+
+      // Get initial dimensions
+      let cols = 80
+      let rows = 24
+      try {
+        const dims = fitAddon.proposeDimensions()
+        if (dims && dims.cols > 0 && dims.rows > 0) {
+          cols = dims.cols
+          rows = dims.rows
+        }
+      } catch {
+        // Use defaults
+      }
+
+      // Spawn PTY
+      window.electronAPI.pty.spawn({
+        sessionId,
+        cwd,
+      }).then(() => {
+        if (!mounted) return
+
+        // Mark as initialized
+        initializedRef.current = true
+
+        // Resize to actual dimensions
+        window.electronAPI.pty.resize({ sessionId, cols, rows })
+
+        // Try to fit after a short delay
+        setTimeout(() => {
+          if (!mounted || !fitAddon) return
+          try {
+            fitAddon.fit()
+            const dims = fitAddon.proposeDimensions()
+            if (dims && dims.cols > 0 && dims.rows > 0) {
+              window.electronAPI.pty.resize({
+                sessionId,
+                cols: dims.cols,
+                rows: dims.rows,
+              })
+            }
+          } catch {
+            // Ignore
+          }
+
+          // Set up resize observer after initialization
+          resizeObserver = new ResizeObserver(() => {
+            if (resizeTimeout) clearTimeout(resizeTimeout)
+            resizeTimeout = setTimeout(() => {
+              fitTerminal()
+            }, 100)
+          })
+          resizeObserver.observe(container)
+        }, 50)
+      }).catch((err) => {
+        console.error('Failed to spawn PTY:', err)
+        if (terminal) {
+          terminal.write(`\r\n\x1b[91mFailed to spawn terminal: ${err.message || err}\x1b[0m\r\n`)
+        }
+      })
+    }
+
+    // Start initialization when dimensions are available
+    waitForDimensions(initialize)
 
     // Cleanup
     return () => {
-      unsubscribeData()
-      unsubscribeExit()
-      resizeObserver.disconnect()
+      mounted = false
+      initializedRef.current = false
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      if (unsubscribeData) unsubscribeData()
+      if (unsubscribeExit) unsubscribeExit()
+      if (resizeObserver) resizeObserver.disconnect()
       window.electronAPI.pty.kill(sessionId)
-      terminal.dispose()
+      if (terminal) terminal.dispose()
+      xtermRef.current = null
+      fitAddonRef.current = null
     }
   }, [sessionId, cwd, fitTerminal])
 

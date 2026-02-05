@@ -1,5 +1,6 @@
 import * as pty from 'node-pty'
 import { platform } from 'os'
+import { existsSync } from 'fs'
 import { detectShell } from './shell'
 
 interface PtyCallbacks {
@@ -30,18 +31,31 @@ export class PtyManager {
     const shellInfo = shell ? { path: shell, name: shell } : detectShell()
     const isWindows = platform() === 'win32'
 
-    const ptyProcess = pty.spawn(shellInfo.path, [], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd,
-      env: {
-        ...process.env,
-        TERM: 'xterm-256color',
-        COLORTERM: 'truecolor',
-      },
-      useConpty: isWindows,
-    })
+    // Validate cwd exists
+    if (!existsSync(cwd)) {
+      throw new Error(`Directory does not exist: ${cwd}`)
+    }
+
+    console.log(`Spawning PTY: shell=${shellInfo.path}, cwd=${cwd}`)
+
+    let ptyProcess: pty.IPty
+    try {
+      ptyProcess = pty.spawn(shellInfo.path, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd,
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor',
+        },
+        useConpty: isWindows,
+      })
+    } catch (err) {
+      console.error('node-pty spawn failed:', err)
+      throw new Error(`Failed to spawn shell: ${err instanceof Error ? err.message : err}`)
+    }
 
     const instance: PtyInstance = {
       pty: ptyProcess,

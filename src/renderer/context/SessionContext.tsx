@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 import { Session } from '@shared/types'
-import { homedir } from './utils'
 
 interface SessionContextType {
   sessions: Session[]
@@ -17,8 +16,23 @@ function generateId(): string {
 }
 
 function getSessionName(cwd: string): string {
+  if (typeof cwd !== 'string') {
+    return 'Terminal'
+  }
   const parts = cwd.split(/[/\\]/)
   return parts[parts.length - 1] || cwd
+}
+
+function getDefaultDirectory(): string {
+  // Try to get home directory from various sources
+  if (typeof process !== 'undefined' && process.env) {
+    const home = process.env.HOME || process.env.USERPROFILE
+    if (typeof home === 'string' && home.length > 0) {
+      return home
+    }
+  }
+  // Fallback for Linux/macOS
+  return '/home'
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -31,7 +45,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!sessionCwd) {
       // Show directory picker
       const selected = await window.electronAPI.fs.selectDirectory()
-      sessionCwd = selected || homedir()
+      sessionCwd = selected || getDefaultDirectory()
+    }
+
+    // Ensure cwd is a valid string
+    if (typeof sessionCwd !== 'string' || sessionCwd.length === 0) {
+      sessionCwd = getDefaultDirectory()
     }
 
     const newSession: Session = {

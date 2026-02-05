@@ -9,14 +9,19 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
   ipcMain.handle(PTY_CHANNELS.SPAWN, async (_event, options: PtySpawnOptions) => {
     const { sessionId, cwd, shell } = options
 
-    ptyManager.spawn(sessionId, cwd, shell, {
-      onData: (data) => {
-        sendToRenderer(PTY_CHANNELS.DATA, sessionId, data)
-      },
-      onExit: (code) => {
-        sendToRenderer(PTY_CHANNELS.EXIT, sessionId, code)
-      },
-    })
+    try {
+      ptyManager.spawn(sessionId, cwd, shell, {
+        onData: (data) => {
+          sendToRenderer(PTY_CHANNELS.DATA, sessionId, data)
+        },
+        onExit: (code) => {
+          sendToRenderer(PTY_CHANNELS.EXIT, sessionId, code)
+        },
+      })
+    } catch (err) {
+      console.error('Failed to spawn PTY:', err)
+      throw err
+    }
   })
 
   ipcMain.on(PTY_CHANNELS.INPUT, (_event, sessionId: string, data: string) => {
