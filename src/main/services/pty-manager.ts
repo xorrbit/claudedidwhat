@@ -140,7 +140,7 @@ export class PtyManager {
       try {
         // -a = AND conditions, -d cwd = only cwd file descriptor, -p = process ID
         // -F n = output format with 'n' prefix for name field
-        const output = execSync(`lsof -a -d cwd -p ${pid} -F n`, {
+        const output = execSync(`lsof -a -d cwd -p ${pid} -F n 2>/dev/null`, {
           encoding: 'utf-8',
           timeout: 1000,
         })
