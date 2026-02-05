@@ -7,7 +7,12 @@ const { mockReadFile, mockAccess } = vi.hoisted(() => ({
 }))
 
 vi.mock('os', () => {
-  const mod = { homedir: () => '/home/testuser' }
+  const mod = { homedir: () => '/home/testuser', platform: () => 'darwin' }
+  return { ...mod, default: mod }
+})
+
+vi.mock('fs', () => {
+  const mod = { readFileSync: () => '' }
   return { ...mod, default: mod }
 })
 

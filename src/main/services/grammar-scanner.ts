@@ -1,7 +1,19 @@
-import { homedir } from 'os'
+import { homedir, platform } from 'os'
 import { join, resolve } from 'path'
 import { readFile, access } from 'fs/promises'
+import { readFileSync } from 'fs'
 import { GrammarContribution, GrammarScanResult } from '@shared/types'
+
+function isWSL(): boolean {
+  if (platform() !== 'linux') return false
+  try {
+    return readFileSync('/proc/version', 'utf-8').toLowerCase().includes('microsoft')
+  } catch {
+    return false
+  }
+}
+
+const IS_WSL = isWSL()
 
 interface ExtensionEntry {
   identifier: { id: string }
@@ -37,6 +49,14 @@ export class GrammarScanner {
    */
   async scan(): Promise<GrammarScanResult> {
     if (this.cachedResult) return this.cachedResult
+
+    // WSL2 filesystem I/O is too slow — scanning hundreds of extension files
+    // and serializing megabytes of grammar content over IPC blocks the main
+    // process event loop, freezing all window input. Fall back to Monarch.
+    if (IS_WSL) {
+      this.cachedResult = { grammars: [], errors: [] }
+      return this.cachedResult
+    }
 
     const errors: string[] = []
     const grammars: GrammarContribution[] = []
