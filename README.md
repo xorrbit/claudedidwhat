@@ -71,7 +71,7 @@ Changes are detected in real-time as you edit files. The tab name automatically 
 
 Optimized for large repositories and multi-tab workflows:
 
-- **Event-driven updates**: Uses native file system events (inotify/FSEvents) instead of polling, so git status only refreshes when files actually change
+- **Event-driven updates**: Uses native file system events (inotify/FSEvents) instead of polling, so git status only refreshes when files actually change. On WSL2, automatically falls back to lightweight polling to avoid blocking input
 - **LRU diff cache**: Recently viewed diffs are cached for instant file switching, with automatic eviction to bound memory usage
 - **Visibility-aware**: Background tabs pause file watching and git operations until focused
 - **Centralized polling**: Single source for terminal CWD tracking across all tabs, reduced frequency with caching

@@ -60,14 +60,14 @@ export const FileListItem = memo(function FileListItem({
       {/* File info */}
       <div className="flex-1 min-w-0">
         <span className={`
-          text-sm truncate block font-medium
+          text-sm break-all block font-medium
           ${isSelected ? 'text-obsidian-text' : 'text-obsidian-text-secondary group-hover:text-obsidian-text'}
           transition-colors duration-150
         `}>
           {fileName}
         </span>
         {dirPath && (
-          <span className="text-2xs text-obsidian-text-ghost truncate block">
+          <span className="text-2xs text-obsidian-text-ghost break-all block">
             {dirPath}
           </span>
         )}

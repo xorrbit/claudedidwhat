@@ -1,4 +1,6 @@
 import chokidar, { FSWatcher } from 'chokidar'
+import { platform } from 'os'
+import { readFileSync } from 'fs'
 import { FileChangeEvent } from '@shared/types'
 
 type WatcherCallback = (event: FileChangeEvent) => void
@@ -11,6 +13,17 @@ interface WatcherInstance {
 }
 
 const DEBOUNCE_MS = 300
+
+function isWSL(): boolean {
+  if (platform() !== 'linux') return false
+  try {
+    return readFileSync('/proc/version', 'utf-8').toLowerCase().includes('microsoft')
+  } catch {
+    return false
+  }
+}
+
+const IS_WSL = isWSL()
 
 export class FileWatcher {
   private watchers: Map<string, WatcherInstance> = new Map()
@@ -40,17 +53,19 @@ export class FileWatcher {
       ],
       persistent: true,
       ignoreInitial: true,
-      // Use native fs events (inotify/FSEvents) - much more efficient
-      usePolling: false,
+      // WSL2: inotify + awaitWriteFinish blocks the main process event loop,
+      // freezing all window input. Use polling with a relaxed interval instead.
+      usePolling: IS_WSL,
+      interval: IS_WSL ? 2000 : undefined,
       // Handle atomic saves (editors that write to temp file then rename)
-      atomic: true,
-      // Slight delay to batch rapid changes
-      awaitWriteFinish: {
+      atomic: !IS_WSL,
+      // awaitWriteFinish polls files at pollInterval - too expensive on WSL2
+      awaitWriteFinish: IS_WSL ? false : {
         stabilityThreshold: 300,
         pollInterval: 100,
       },
       // Limit depth to avoid watching deeply nested generated dirs
-      depth: 10,
+      depth: IS_WSL ? 6 : 10,
     })
 
     const instance: WatcherInstance = {
