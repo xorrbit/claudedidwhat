@@ -31,6 +31,12 @@ const mockElectronAPI = {
     onCloseTab: vi.fn(() => () => {}),
     onShowHelp: vi.fn(() => () => {}),
   },
+  window: {
+    minimize: vi.fn(),
+    maximize: vi.fn(),
+    close: vi.fn(),
+    quit: vi.fn(),
+  },
 }
 
 Object.defineProperty(window, 'electronAPI', {

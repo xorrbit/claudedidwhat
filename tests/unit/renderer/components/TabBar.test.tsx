@@ -70,10 +70,10 @@ describe('TabBar', () => {
     expect(onTabClose).toHaveBeenCalledWith('1')
   })
 
-  it('calls onNewTab when + button clicked', () => {
+  it('calls onNewTab when empty space double-clicked', () => {
     const onNewTab = vi.fn()
 
-    render(
+    const { container } = render(
       <TabBar
         sessions={mockSessions}
         activeSessionId="1"
@@ -83,9 +83,9 @@ describe('TabBar', () => {
       />
     )
 
-    // Find the new tab button by its title
-    const newTabButton = screen.getByTitle('New Tab (Ctrl+T)')
-    fireEvent.click(newTabButton)
+    // Find the empty space after tabs and double-click it
+    const emptySpace = container.querySelector('.flex-1.min-w-\\[100px\\]')!
+    fireEvent.doubleClick(emptySpace)
 
     expect(onNewTab).toHaveBeenCalled()
   })
@@ -110,7 +110,7 @@ describe('TabBar', () => {
   })
 
   it('renders empty state with no tabs', () => {
-    render(
+    const { container } = render(
       <TabBar
         sessions={[]}
         activeSessionId={null}
@@ -120,8 +120,9 @@ describe('TabBar', () => {
       />
     )
 
-    // Should still have the new tab button
-    expect(screen.getByTitle('New Tab (Ctrl+T)')).toBeInTheDocument()
+    // Should still have the empty space for double-click to create new tab
+    const emptySpace = container.querySelector('.flex-1.min-w-\\[100px\\]')
+    expect(emptySpace).toBeInTheDocument()
   })
 
   it('shows full path in tab tooltip', () => {

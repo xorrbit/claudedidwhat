@@ -172,7 +172,7 @@ describe('useSessions (SessionContext)', () => {
     expect(result.current.activeSessionId).toBe(third.id)
   })
 
-  it('handles closing last session - sets activeSessionId to null', async () => {
+  it('handles closing last session - quits the app', async () => {
     const { result } = renderHook(() => useSessionContext(), { wrapper })
 
     // Wait for initial session
@@ -188,7 +188,7 @@ describe('useSessions (SessionContext)', () => {
     })
 
     expect(result.current.sessions).toHaveLength(0)
-    expect(result.current.activeSessionId).toBeNull()
+    expect(window.electronAPI.window.quit).toHaveBeenCalled()
   })
 
   it('handles closing non-active session - keeps active session', async () => {
