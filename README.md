@@ -19,10 +19,10 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/vibediff.git
+git clone https://github.com/xorrbit/vibediff.git
 cd vibediff
 
-# Install dependencies
+# Install dependencies (automatically rebuilds native modules for Electron)
 npm install
 
 # Run in development mode
@@ -37,9 +37,11 @@ npm run package:mac     # macOS (dmg)
 npm run package:win     # Windows (exe)
 ```
 
+> **Note**: The `postinstall` script automatically rebuilds `node-pty` for Electron. If you encounter native module errors, run `npx @electron/rebuild -f -w node-pty`.
+
 ### Pre-built Binaries
 
-Download from the [Releases](https://github.com/yourusername/vibediff/releases) page.
+Download from the [Releases](https://github.com/xorrbit/vibediff/releases) page.
 
 ## Usage
 
