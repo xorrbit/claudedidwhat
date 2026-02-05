@@ -41,11 +41,12 @@ test.describe('Terminal', () => {
   test('terminal canvas is rendered', async () => {
     if (!page) test.skip()
 
-    // xterm.js renders to a canvas element
-    const terminalCanvas = page.locator('canvas')
+    // xterm.js renders to either canvas (WebGL) or with rows/cursor elements
+    // Check for xterm container with terminal content
+    const xtermScreen = page.locator('.xterm-screen')
 
-    // Wait for canvas to be rendered
-    await expect(terminalCanvas.first()).toBeVisible({ timeout: 10000 })
+    // Wait for xterm screen to be rendered
+    await expect(xtermScreen.first()).toBeVisible({ timeout: 10000 })
   })
 
   test('terminal container is present', async () => {
@@ -81,10 +82,10 @@ test.describe('Terminal', () => {
     expect(newBounds.width).toBe(1200)
     expect(newBounds.height).toBe(800)
 
-    // Restore size
-    await window.evaluate((win) => {
-      win.setSize(initialBounds.width, initialBounds.height)
-    })
+    // Restore size - pass initialBounds as argument since each evaluate runs in isolation
+    await window.evaluate((win, bounds) => {
+      win.setSize(bounds.width, bounds.height)
+    }, initialBounds)
   })
 
   test('terminal can receive keyboard input', async () => {

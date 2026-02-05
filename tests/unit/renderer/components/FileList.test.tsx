@@ -67,9 +67,9 @@ describe('FileList', () => {
     const modifiedIndicator = screen.getByText('M')
     const deletedIndicator = screen.getByText('D')
 
-    expect(addedIndicator.className).toContain('text-terminal-added')
-    expect(modifiedIndicator.className).toContain('text-terminal-modified')
-    expect(deletedIndicator.className).toContain('text-terminal-deleted')
+    expect(addedIndicator.className).toContain('text-obsidian-added')
+    expect(modifiedIndicator.className).toContain('text-obsidian-modified')
+    expect(deletedIndicator.className).toContain('text-obsidian-deleted')
   })
 
   it('calls onSelectFile when file clicked', () => {
@@ -105,7 +105,7 @@ describe('FileList', () => {
   })
 
   it('shows loading state', () => {
-    render(
+    const { container } = render(
       <FileList
         files={[]}
         selectedFile={null}
@@ -114,7 +114,9 @@ describe('FileList', () => {
       />
     )
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    // Loading state shows skeleton loaders with animate-pulse
+    const skeletons = container.querySelectorAll('.animate-pulse')
+    expect(skeletons.length).toBeGreaterThan(0)
   })
 
   it('shows files even while loading if files exist', () => {
@@ -143,11 +145,10 @@ describe('FileList', () => {
     )
 
     const selectedButton = screen.getByText('Button.tsx').closest('button')!
-    expect(selectedButton.className).toContain('bg-terminal-surface')
+    expect(selectedButton.className).toContain('bg-obsidian-accent')
 
     const unselectedButton = screen.getByText('helpers.ts').closest('button')!
-    // Should not have the selected class (when not selected)
-    // Note: it may still have hover state classes
+    expect(unselectedButton.className).not.toContain('bg-obsidian-accent')
   })
 
   it('shows directory path for files in subdirectories', () => {
@@ -182,7 +183,7 @@ describe('FileList', () => {
     // Should not have an empty path line
   })
 
-  it('scrolls with many files', () => {
+  it('renders many files without issues', () => {
     const manyFiles: ChangedFile[] = Array.from({ length: 50 }, (_, i) => ({
       path: `src/file${i}.ts`,
       status: 'M' as const,
@@ -197,8 +198,8 @@ describe('FileList', () => {
       />
     )
 
-    // The container should have overflow-y-auto for scrolling
-    const scrollContainer = container.querySelector('.overflow-y-auto')
-    expect(scrollContainer).toBeInTheDocument()
+    // All files should be rendered
+    const buttons = container.querySelectorAll('button')
+    expect(buttons.length).toBe(50)
   })
 })

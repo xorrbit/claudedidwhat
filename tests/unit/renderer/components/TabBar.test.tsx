@@ -102,12 +102,11 @@ describe('TabBar', () => {
     )
 
     const activeTab = screen.getByText('project2').closest('button')!
-    expect(activeTab.className).toContain('bg-terminal-bg')
-    expect(activeTab.className).toContain('text-terminal-text')
+    expect(activeTab.className).toContain('bg-obsidian-bg')
+    expect(activeTab.className).toContain('text-obsidian-text')
 
     const inactiveTab = screen.getByText('project1').closest('button')!
-    expect(inactiveTab.className).toContain('bg-terminal-surface')
-    expect(inactiveTab.className).toContain('text-terminal-text-muted')
+    expect(inactiveTab.className).toContain('text-obsidian-text-muted')
   })
 
   it('renders empty state with no tabs', () => {

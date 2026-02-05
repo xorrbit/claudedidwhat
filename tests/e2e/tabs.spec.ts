@@ -58,8 +58,8 @@ test.describe('Tab Management', () => {
   test('tab bar shows tabs', async () => {
     if (!page) test.skip()
 
-    // Check that the tab bar structure exists
-    const tabBarArea = page.locator('[class*="flex"][class*="bg-terminal-surface"]')
+    // Check that the tab bar structure exists (uses obsidian theme)
+    const tabBarArea = page.locator('[class*="flex"][class*="bg-obsidian-surface"]')
     await expect(tabBarArea.first()).toBeVisible({ timeout: 5000 })
   })
 
@@ -80,8 +80,8 @@ test.describe('Tab Management', () => {
     if (!page) test.skip()
 
     // This test assumes there are already tabs
-    // Look for any tab buttons in the tab bar
-    const tabs = page.locator('[class*="border-r"][class*="border-terminal-border"]')
+    // Look for any tab buttons in the tab bar (uses obsidian theme)
+    const tabs = page.locator('[class*="rounded-t-lg"]')
     const tabCount = await tabs.count()
 
     if (tabCount >= 2) {

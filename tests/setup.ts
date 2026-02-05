@@ -10,18 +10,21 @@ const mockElectronAPI = {
     kill: vi.fn(),
     onData: vi.fn(() => () => {}),
     onExit: vi.fn(() => () => {}),
+    getCwd: vi.fn().mockResolvedValue(null),
   },
   git: {
     getChangedFiles: vi.fn(),
     getFileDiff: vi.fn(),
     getFileContent: vi.fn(),
     getMainBranch: vi.fn(),
+    getCurrentBranch: vi.fn().mockResolvedValue(null),
   },
   fs: {
     selectDirectory: vi.fn(),
     startWatching: vi.fn(),
     stopWatching: vi.fn(),
     onFileChange: vi.fn(() => () => {}),
+    getHomeDir: vi.fn().mockResolvedValue('/home/test'),
   },
   menu: {
     onNewTab: vi.fn(() => () => {}),
