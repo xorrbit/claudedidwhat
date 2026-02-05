@@ -136,6 +136,21 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
       // Open terminal in container
       terminal.open(container)
 
+      // Intercept certain key combinations before xterm handles them
+      // This allows our app-level shortcuts to work
+      terminal.attachCustomKeyEventHandler((e) => {
+        const isMod = e.metaKey || e.ctrlKey
+        // Let Ctrl/Cmd+Tab, Ctrl/Cmd+T, Ctrl/Cmd+W bubble up to app handlers
+        if (isMod && (e.key === 'Tab' || e.key === 't' || e.key === 'w')) {
+          return false // Don't let xterm handle it
+        }
+        // Let Ctrl/Cmd+1-9 bubble up for tab switching
+        if (isMod && e.key >= '1' && e.key <= '9') {
+          return false
+        }
+        return true // Let xterm handle everything else
+      })
+
       // Load WebGL addon for better performance (must be after open)
       try {
         const webglAddon = new WebglAddon()
