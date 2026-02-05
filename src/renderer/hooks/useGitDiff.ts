@@ -27,6 +27,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
   const selectedFileRef = useRef<string | null>(null)
   const prevCwdRef = useRef<string>(cwd)
   const initialLoadDone = useRef(false)
+  const diffCache = useRef<Map<string, DiffContent>>(new Map())
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -47,7 +48,21 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
         // Refresh diff content for currently selected file
         try {
           const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFileRef.current)
-          setDiffContent(diff)
+          const cached = diffCache.current.get(selectedFileRef.current)
+
+          // Only update if diff actually changed
+          const hasChanged = !cached ||
+            cached.original !== diff?.original ||
+            cached.modified !== diff?.modified
+
+          if (hasChanged) {
+            setDiffContent(diff)
+            if (diff) {
+              diffCache.current.set(selectedFileRef.current, diff)
+            } else {
+              diffCache.current.delete(selectedFileRef.current)
+            }
+          }
         } catch {
           // Ignore diff refresh errors
         }
@@ -76,10 +91,11 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
       prevCwdRef.current = cwd
 
       if (initialLoadDone.current) {
-        // Clear selection for new directory
+        // Clear selection and cache for new directory
         setSelectedFile(null)
         selectedFileRef.current = null
         setDiffContent(null)
+        diffCache.current.clear()
         setIsLoading(true)
         loadFiles()
       }
@@ -94,6 +110,14 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
       return
     }
 
+    // Check cache first
+    const cached = diffCache.current.get(selectedFile)
+    if (cached) {
+      setDiffContent(cached)
+      setIsDiffLoading(false)
+      return
+    }
+
     let cancelled = false
     setIsDiffLoading(true)
     setDiffContent(null)
@@ -103,6 +127,10 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
         const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFile)
         if (!cancelled) {
           setDiffContent(diff)
+          // Store in cache
+          if (diff) {
+            diffCache.current.set(selectedFile, diff)
+          }
         }
       } catch (err) {
         console.error('Failed to load diff:', err)
@@ -141,6 +169,7 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
   }, [])
 
   const refresh = useCallback(() => {
+    diffCache.current.clear()
     setIsLoading(true)
     loadFiles()
   }, [loadFiles])
