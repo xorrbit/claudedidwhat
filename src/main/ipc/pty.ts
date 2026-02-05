@@ -35,4 +35,8 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
   ipcMain.on(PTY_CHANNELS.KILL, (_event, sessionId: string) => {
     ptyManager.kill(sessionId)
   })
+
+  ipcMain.handle('pty:getCwd', (_event, sessionId: string) => {
+    return ptyManager.getCwd(sessionId)
+  })
 }

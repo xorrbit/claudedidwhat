@@ -1,3 +1,4 @@
+import { memo, useState, useEffect } from 'react'
 import { useGitDiff } from '../../hooks/useGitDiff'
 import { FileList } from './FileList'
 import { DiffView } from './DiffView'
@@ -7,7 +8,30 @@ interface DiffPanelProps {
   cwd: string
 }
 
-export function DiffPanel({ sessionId, cwd }: DiffPanelProps) {
+export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd }: DiffPanelProps) {
+  // Track the terminal's current working directory
+  const [terminalCwd, setTerminalCwd] = useState(initialCwd)
+
+  // Poll for terminal cwd changes
+  useEffect(() => {
+    const pollCwd = async () => {
+      try {
+        const cwd = await window.electronAPI.pty.getCwd(sessionId)
+        if (cwd && cwd !== terminalCwd) {
+          setTerminalCwd(cwd)
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Poll immediately and then every 2 seconds
+    pollCwd()
+    const interval = setInterval(pollCwd, 2000)
+
+    return () => clearInterval(interval)
+  }, [sessionId, terminalCwd])
+
   const {
     files,
     selectedFile,
@@ -16,7 +40,7 @@ export function DiffPanel({ sessionId, cwd }: DiffPanelProps) {
     error,
     selectFile,
     refresh,
-  } = useGitDiff({ sessionId, cwd })
+  } = useGitDiff({ sessionId, cwd: terminalCwd })
 
   if (error) {
     return (
@@ -36,9 +60,14 @@ export function DiffPanel({ sessionId, cwd }: DiffPanelProps) {
     <div className="h-full flex flex-col bg-terminal-bg">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border">
-        <span className="text-xs text-terminal-text-muted uppercase tracking-wide">
-          Changes
-        </span>
+        <div className="flex flex-col min-w-0">
+          <span className="text-xs text-terminal-text-muted uppercase tracking-wide">
+            Changes
+          </span>
+          <span className="text-xs text-terminal-text-muted truncate" title={terminalCwd}>
+            {terminalCwd.split('/').slice(-2).join('/')}
+          </span>
+        </div>
         <button
           className="text-terminal-text-muted hover:text-terminal-text p-1"
           onClick={refresh}
@@ -80,4 +109,4 @@ export function DiffPanel({ sessionId, cwd }: DiffPanelProps) {
       </div>
     </div>
   )
-}
+})

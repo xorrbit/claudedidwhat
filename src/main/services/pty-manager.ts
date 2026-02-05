@@ -1,6 +1,6 @@
 import * as pty from 'node-pty'
 import { platform } from 'os'
-import { existsSync } from 'fs'
+import { existsSync, readlinkSync } from 'fs'
 import { detectShell } from './shell'
 
 interface PtyCallbacks {
@@ -113,5 +113,29 @@ export class PtyManager {
     for (const [sessionId] of this.instances) {
       this.kill(sessionId)
     }
+  }
+
+  /**
+   * Get the current working directory of a PTY process.
+   */
+  getCwd(sessionId: string): string | null {
+    const instance = this.instances.get(sessionId)
+    if (!instance) return null
+
+    const pid = instance.pty.pid
+    if (!pid) return null
+
+    // On Linux, read the cwd from /proc/<pid>/cwd
+    if (platform() === 'linux') {
+      try {
+        return readlinkSync(`/proc/${pid}/cwd`)
+      } catch {
+        return null
+      }
+    }
+
+    // On macOS, we could use lsof but it's slower
+    // For now, return null on non-Linux platforms
+    return null
   }
 }

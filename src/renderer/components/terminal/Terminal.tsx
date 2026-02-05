@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useTerminal } from '../../hooks/useTerminal'
 
 interface TerminalProps {
@@ -5,7 +6,7 @@ interface TerminalProps {
   cwd: string
 }
 
-export function Terminal({ sessionId, cwd }: TerminalProps) {
+export const Terminal = memo(function Terminal({ sessionId, cwd }: TerminalProps) {
   const { terminalRef } = useTerminal({ sessionId, cwd })
 
   return (
@@ -13,4 +14,4 @@ export function Terminal({ sessionId, cwd }: TerminalProps) {
       <div ref={terminalRef} className="h-full w-full" />
     </div>
   )
-}
+})

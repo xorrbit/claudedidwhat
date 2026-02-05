@@ -1,9 +1,10 @@
+import { memo } from 'react'
 import { ChangedFile, FileStatus } from '@shared/types'
 
 interface FileListItemProps {
   file: ChangedFile
   isSelected: boolean
-  onSelect: () => void
+  onSelect: (path: string) => void
 }
 
 const STATUS_COLORS: Record<FileStatus, string> = {
@@ -22,7 +23,7 @@ const STATUS_LABELS: Record<FileStatus, string> = {
   '?': 'Untracked',
 }
 
-export function FileListItem({ file, isSelected, onSelect }: FileListItemProps) {
+export const FileListItem = memo(function FileListItem({ file, isSelected, onSelect }: FileListItemProps) {
   const statusColor = STATUS_COLORS[file.status]
   const statusLabel = STATUS_LABELS[file.status]
 
@@ -38,7 +39,7 @@ export function FileListItem({ file, isSelected, onSelect }: FileListItemProps) 
         hover:bg-terminal-surface transition-colors
         ${isSelected ? 'bg-terminal-surface' : ''}
       `}
-      onClick={onSelect}
+      onClick={() => onSelect(file.path)}
       title={`${file.path} (${statusLabel})`}
     >
       {/* Status indicator */}
@@ -59,4 +60,4 @@ export function FileListItem({ file, isSelected, onSelect }: FileListItemProps) 
       </div>
     </button>
   )
-}
+})

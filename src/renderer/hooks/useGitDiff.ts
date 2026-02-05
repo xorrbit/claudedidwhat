@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChangedFile, DiffContent } from '@shared/types'
 
 interface UseGitDiffOptions {
@@ -16,23 +16,37 @@ interface UseGitDiffReturn {
   refresh: () => void
 }
 
-export function useGitDiff({ sessionId, cwd }: UseGitDiffOptions): UseGitDiffReturn {
+export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
   const [files, setFiles] = useState<ChangedFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<DiffContent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const selectedFileRef = useRef<string | null>(null)
 
-  // Load changed files
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedFileRef.current = selectedFile
+  }, [selectedFile])
+
+  // Load changed files and refresh diff if a file is selected
   const loadFiles = useCallback(async () => {
     try {
       const changedFiles = await window.electronAPI.git.getChangedFiles(cwd)
       setFiles(changedFiles)
       setError(null)
 
-      // Auto-select first file if none selected
-      if (!selectedFile && changedFiles.length > 0) {
+      // Auto-select first file if none selected (use ref to avoid dependency)
+      if (!selectedFileRef.current && changedFiles.length > 0) {
         setSelectedFile(changedFiles[0].path)
+      } else if (selectedFileRef.current) {
+        // Refresh diff content for currently selected file
+        try {
+          const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFileRef.current)
+          setDiffContent(diff)
+        } catch {
+          // Ignore diff refresh errors
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load files')
@@ -40,51 +54,47 @@ export function useGitDiff({ sessionId, cwd }: UseGitDiffOptions): UseGitDiffRet
     } finally {
       setIsLoading(false)
     }
-  }, [cwd, selectedFile])
+  }, [cwd])
 
-  // Load diff content for selected file
-  const loadDiff = useCallback(async () => {
+  // Delay initial load to not block terminal initialization
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadFiles()
+    }, 2000) // Wait 2 seconds after mount before first git check
+
+    return () => clearTimeout(timer)
+  }, [loadFiles])
+
+  // Load diff when selected file changes (with small delay)
+  useEffect(() => {
     if (!selectedFile) {
       setDiffContent(null)
       return
     }
 
-    try {
-      const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFile)
-      setDiffContent(diff)
-    } catch (err) {
-      console.error('Failed to load diff:', err)
-      setDiffContent(null)
-    }
+    const timer = setTimeout(async () => {
+      try {
+        const diff = await window.electronAPI.git.getFileDiff(cwd, selectedFile)
+        setDiffContent(diff)
+      } catch (err) {
+        console.error('Failed to load diff:', err)
+        setDiffContent(null)
+      }
+    }, 100)
+
+    return () => clearTimeout(timer)
   }, [cwd, selectedFile])
 
-  // Initial load
+  // Poll for file changes every 5 seconds
   useEffect(() => {
-    loadFiles()
-  }, [loadFiles])
-
-  // Load diff when selected file changes
-  useEffect(() => {
-    loadDiff()
-  }, [loadDiff])
-
-  // Subscribe to file changes
-  useEffect(() => {
-    const unsubscribe = window.electronAPI.fs.onFileChanged((event) => {
-      if (event.sessionId === sessionId) {
-        // Debounce refresh
-        loadFiles()
-      }
-    })
-
-    // Start watching
-    window.electronAPI.fs.watchStart(sessionId, cwd)
+    const pollInterval = setInterval(() => {
+      loadFiles()
+    }, 5000)
 
     return () => {
-      unsubscribe()
-      window.electronAPI.fs.watchStop(sessionId)
+      clearInterval(pollInterval)
     }
-  }, [sessionId, cwd, loadFiles])
+  }, [loadFiles])
 
   const selectFile = useCallback((path: string) => {
     setSelectedFile(path)

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ChangedFile } from '@shared/types'
 import { FileListItem } from './FileListItem'
 
@@ -8,7 +9,7 @@ interface FileListProps {
   isLoading: boolean
 }
 
-export function FileList({
+export const FileList = memo(function FileList({
   files,
   selectedFile,
   onSelectFile,
@@ -37,9 +38,9 @@ export function FileList({
           key={file.path}
           file={file}
           isSelected={file.path === selectedFile}
-          onSelect={() => onSelectFile(file.path)}
+          onSelect={onSelectFile}
         />
       ))}
     </div>
   )
-}
+})

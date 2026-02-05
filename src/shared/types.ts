@@ -73,6 +73,7 @@ export interface ElectronAPI {
     kill: (sessionId: string) => void
     onData: (callback: (sessionId: string, data: string) => void) => () => void
     onExit: (callback: (sessionId: string, code: number) => void) => () => void
+    getCwd: (sessionId: string) => Promise<string | null>
   }
   git: {
     getMainBranch: (dir: string) => Promise<string | null>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { WebLinksAddon } from 'xterm-addon-web-links'
+import { WebglAddon } from '@xterm/addon-webgl'
 import 'xterm/css/xterm.css'
 
 interface UseTerminalOptions {
@@ -98,7 +99,7 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
     const initialize = () => {
       if (!mounted) return
 
-      // Create terminal instance
+      // Create terminal instance with performance optimizations
       terminal = new Terminal({
         theme: TERMINAL_THEME,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -107,6 +108,9 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
         cursorBlink: true,
         cursorStyle: 'block',
         allowProposedApi: true,
+        scrollback: 5000, // Limit scrollback for performance
+        fastScrollModifier: 'alt',
+        fastScrollSensitivity: 5,
       })
 
       // Create addons
@@ -122,6 +126,17 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
 
       // Open terminal in container
       terminal.open(container)
+
+      // Load WebGL addon for better performance (must be after open)
+      try {
+        const webglAddon = new WebglAddon()
+        webglAddon.onContextLoss(() => {
+          webglAddon.dispose()
+        })
+        terminal.loadAddon(webglAddon)
+      } catch (e) {
+        console.warn('WebGL addon failed to load, using canvas renderer:', e)
+      }
 
       // Handle terminal input
       terminal.onData((data) => {

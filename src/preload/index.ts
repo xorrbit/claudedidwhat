@@ -40,6 +40,9 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.on(PTY_CHANNELS.EXIT, listener)
       return () => ipcRenderer.removeListener(PTY_CHANNELS.EXIT, listener)
     },
+
+    getCwd: (sessionId: string): Promise<string | null> =>
+      ipcRenderer.invoke('pty:getCwd', sessionId),
   },
 
   git: {
