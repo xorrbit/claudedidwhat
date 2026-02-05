@@ -70,15 +70,15 @@ Changes are detected in real-time as you edit files. The tab name automatically 
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Electron 28 |
-| Language | TypeScript 5.3 |
-| UI | React 18 |
-| Styling | Tailwind CSS 3.4 + JetBrains Mono |
-| Terminal | xterm.js 5.3 |
-| PTY | node-pty 1.0 |
-| Diff View | Monaco Editor 0.45 |
-| Git | simple-git 3.22 |
-| File Watching | chokidar 3.5 |
+| Framework | Electron |
+| Language | TypeScript |
+| UI | React |
+| Styling | Tailwind CSS + JetBrains Mono |
+| Terminal | xterm.js |
+| PTY | node-pty |
+| Diff View | Monaco Editor |
+| Git | simple-git |
+| File Watching | chokidar |
 | Testing | Vitest + Playwright |
 
 ## Development
