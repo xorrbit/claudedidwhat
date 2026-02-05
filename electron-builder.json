@@ -1,0 +1,48 @@
+{
+  "appId": "com.vibediff.app",
+  "productName": "vibediff",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "mac": {
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["universal"]
+      }
+    ],
+    "category": "public.app-category.developer-tools",
+    "icon": "resources/icon.icns"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "resources/icon.ico"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "category": "Development",
+    "icon": "resources"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

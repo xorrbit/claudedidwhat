@@ -1,0 +1,16 @@
+import { useTerminal } from '../../hooks/useTerminal'
+
+interface TerminalProps {
+  sessionId: string
+  cwd: string
+}
+
+export function Terminal({ sessionId, cwd }: TerminalProps) {
+  const { terminalRef } = useTerminal({ sessionId, cwd })
+
+  return (
+    <div className="h-full w-full bg-terminal-bg xterm-container">
+      <div ref={terminalRef} className="h-full w-full" />
+    </div>
+  )
+}

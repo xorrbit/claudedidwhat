@@ -1,0 +1,79 @@
+import { contextBridge, ipcRenderer } from 'electron'
+import {
+  PTY_CHANNELS,
+  GIT_CHANNELS,
+  FS_CHANNELS,
+  PtySpawnOptions,
+  PtyResizeOptions,
+  ChangedFile,
+  DiffContent,
+  FileChangeEvent,
+  ElectronAPI,
+} from '@shared/types'
+
+const electronAPI: ElectronAPI = {
+  pty: {
+    spawn: (options: PtySpawnOptions) =>
+      ipcRenderer.invoke(PTY_CHANNELS.SPAWN, options),
+
+    input: (sessionId: string, data: string) =>
+      ipcRenderer.send(PTY_CHANNELS.INPUT, sessionId, data),
+
+    resize: (options: PtyResizeOptions) =>
+      ipcRenderer.send(PTY_CHANNELS.RESIZE, options),
+
+    kill: (sessionId: string) =>
+      ipcRenderer.send(PTY_CHANNELS.KILL, sessionId),
+
+    onData: (callback: (sessionId: string, data: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string, data: string) => {
+        callback(sessionId, data)
+      }
+      ipcRenderer.on(PTY_CHANNELS.DATA, listener)
+      return () => ipcRenderer.removeListener(PTY_CHANNELS.DATA, listener)
+    },
+
+    onExit: (callback: (sessionId: string, code: number) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string, code: number) => {
+        callback(sessionId, code)
+      }
+      ipcRenderer.on(PTY_CHANNELS.EXIT, listener)
+      return () => ipcRenderer.removeListener(PTY_CHANNELS.EXIT, listener)
+    },
+  },
+
+  git: {
+    getMainBranch: (dir: string): Promise<string | null> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_MAIN_BRANCH, dir),
+
+    getChangedFiles: (dir: string, baseBranch?: string): Promise<ChangedFile[]> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_CHANGED_FILES, dir, baseBranch),
+
+    getFileDiff: (dir: string, filePath: string, baseBranch?: string): Promise<DiffContent | null> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_FILE_DIFF, dir, filePath, baseBranch),
+
+    getFileContent: (dir: string, filePath: string, ref?: string): Promise<string | null> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_FILE_CONTENT, dir, filePath, ref),
+  },
+
+  fs: {
+    watchStart: (sessionId: string, dir: string): Promise<void> =>
+      ipcRenderer.invoke(FS_CHANNELS.WATCH_START, sessionId, dir),
+
+    watchStop: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke(FS_CHANNELS.WATCH_STOP, sessionId),
+
+    onFileChanged: (callback: (event: FileChangeEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, changeEvent: FileChangeEvent) => {
+        callback(changeEvent)
+      }
+      ipcRenderer.on(FS_CHANNELS.FILE_CHANGED, listener)
+      return () => ipcRenderer.removeListener(FS_CHANNELS.FILE_CHANGED, listener)
+    },
+
+    selectDirectory: (): Promise<string | null> =>
+      ipcRenderer.invoke(FS_CHANNELS.SELECT_DIRECTORY),
+  },
+}
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI)

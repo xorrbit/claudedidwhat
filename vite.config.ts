@@ -1,0 +1,49 @@
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import electron from 'vite-plugin-electron'
+import renderer from 'vite-plugin-electron-renderer'
+import { resolve } from 'path'
+
+const alias = {
+  '@': resolve(__dirname, 'src'),
+  '@main': resolve(__dirname, 'src/main'),
+  '@renderer': resolve(__dirname, 'src/renderer'),
+  '@shared': resolve(__dirname, 'src/shared'),
+}
+
+export default defineConfig({
+  plugins: [
+    react(),
+    electron([
+      {
+        entry: 'src/main/index.ts',
+        vite: {
+          resolve: { alias },
+          build: {
+            outDir: 'dist/main',
+            rollupOptions: {
+              external: ['electron', 'node-pty', 'chokidar', 'simple-git'],
+            },
+          },
+        },
+      },
+      {
+        entry: 'src/preload/index.ts',
+        onstart(options) {
+          options.reload()
+        },
+        vite: {
+          resolve: { alias },
+          build: {
+            outDir: 'dist/preload',
+          },
+        },
+      },
+    ]),
+    renderer(),
+  ],
+  resolve: { alias },
+  build: {
+    outDir: 'dist/renderer',
+  },
+})
