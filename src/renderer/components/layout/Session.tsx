@@ -1,6 +1,6 @@
-import { memo, useMemo } from 'react'
+import { memo, useRef, useCallback } from 'react'
 import { ResizableSplit } from './ResizableSplit'
-import { Terminal } from '../terminal/Terminal'
+import { Terminal, TerminalHandle } from '../terminal/Terminal'
 import { DiffPanel } from '../diff/DiffPanel'
 
 interface SessionProps {
@@ -9,22 +9,17 @@ interface SessionProps {
 }
 
 export const Session = memo(function Session({ sessionId, cwd }: SessionProps) {
-  // Memoize children to prevent re-renders when ResizableSplit updates
-  const terminalElement = useMemo(
-    () => <Terminal sessionId={sessionId} cwd={cwd} />,
-    [sessionId, cwd]
-  )
+  const terminalRef = useRef<TerminalHandle>(null)
 
-  const diffPanelElement = useMemo(
-    () => <DiffPanel sessionId={sessionId} cwd={cwd} />,
-    [sessionId, cwd]
-  )
+  const focusTerminal = useCallback(() => {
+    terminalRef.current?.focus()
+  }, [])
 
   return (
     <div className="h-full">
       <ResizableSplit
-        left={terminalElement}
-        right={diffPanelElement}
+        left={<Terminal ref={terminalRef} sessionId={sessionId} cwd={cwd} />}
+        right={<DiffPanel sessionId={sessionId} cwd={cwd} onFocusTerminal={focusTerminal} />}
         initialRatio={0.5}
         minRatio={0.2}
         maxRatio={0.8}

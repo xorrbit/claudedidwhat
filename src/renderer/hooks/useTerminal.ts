@@ -12,6 +12,7 @@ interface UseTerminalOptions {
 
 interface UseTerminalReturn {
   terminalRef: React.RefObject<HTMLDivElement>
+  focus: () => void
 }
 
 // Obsidian Studio terminal theme - refined and warm
@@ -67,6 +68,13 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
       // Ignore fit errors
     }
   }, [sessionId])
+
+  // Focus the terminal
+  const focus = useCallback(() => {
+    if (xtermRef.current) {
+      xtermRef.current.focus()
+    }
+  }, [])
 
   useEffect(() => {
     const container = terminalRef.current
@@ -209,6 +217,11 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
             }, 100)
           })
           resizeObserver.observe(container)
+
+          // Focus the terminal so user can start typing immediately
+          if (terminal) {
+            terminal.focus()
+          }
         }, 50)
       }).catch((err) => {
         console.error('Failed to spawn PTY:', err)
@@ -236,5 +249,5 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
     }
   }, [sessionId, cwd, fitTerminal])
 
-  return { terminalRef }
+  return { terminalRef, focus }
 }

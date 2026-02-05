@@ -1,4 +1,4 @@
-import { memo, lazy, Suspense } from 'react'
+import { memo, lazy, Suspense, useMemo } from 'react'
 import { DiffContent } from '@shared/types'
 import { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
@@ -71,7 +71,60 @@ function LoadingFallback() {
   )
 }
 
+// Memoized editor options to prevent unnecessary Monaco updates
+const EDITOR_OPTIONS = {
+  readOnly: true,
+  renderSideBySide: true,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  fontSize: 13,
+  lineHeight: 20,
+  fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace",
+  fontLigatures: true,
+  folding: true,
+  lineNumbers: 'on' as const,
+  renderLineHighlight: 'none' as const,
+  scrollbar: {
+    verticalScrollbarSize: 8,
+    horizontalScrollbarSize: 8,
+    useShadows: false,
+  },
+  padding: { top: 12, bottom: 12 },
+  overviewRulerBorder: false,
+  hideCursorInOverviewRuler: true,
+}
+
+// Inner component that handles the actual Monaco rendering
+const DiffEditorContent = memo(function DiffEditorContent({
+  original,
+  modified,
+  language,
+}: {
+  original: string
+  modified: string
+  language: string
+}) {
+  return (
+    <DiffEditor
+      original={original}
+      modified={modified}
+      language={language}
+      theme="vs-dark"
+      options={EDITOR_OPTIONS}
+    />
+  )
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if content or language actually changed
+  return (
+    prevProps.original === nextProps.original &&
+    prevProps.modified === nextProps.modified &&
+    prevProps.language === nextProps.language
+  )
+})
+
 export const DiffView = memo(function DiffView({ filePath, diffContent, isLoading }: DiffViewProps) {
+  const language = useMemo(() => getLanguage(filePath), [filePath])
+
   if (!filePath) {
     return (
       <div className="h-full flex flex-col items-center justify-center">
@@ -109,36 +162,12 @@ export const DiffView = memo(function DiffView({ filePath, diffContent, isLoadin
     )
   }
 
-  const language = getLanguage(filePath)
-
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <DiffEditor
+      <DiffEditorContent
         original={diffContent.original}
         modified={diffContent.modified}
         language={language}
-        theme="vs-dark"
-        options={{
-          readOnly: true,
-          renderSideBySide: true,
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          fontSize: 13,
-          lineHeight: 20,
-          fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace",
-          fontLigatures: true,
-          folding: true,
-          lineNumbers: 'on',
-          renderLineHighlight: 'none',
-          scrollbar: {
-            verticalScrollbarSize: 8,
-            horizontalScrollbarSize: 8,
-            useShadows: false,
-          },
-          padding: { top: 12, bottom: 12 },
-          overviewRulerBorder: false,
-          hideCursorInOverviewRuler: true,
-        }}
       />
     </Suspense>
   )

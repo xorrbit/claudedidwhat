@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import { useGitDiff } from '../../hooks/useGitDiff'
 import { FileList } from './FileList'
 import { DiffView } from './DiffView'
@@ -6,9 +6,10 @@ import { DiffView } from './DiffView'
 interface DiffPanelProps {
   sessionId: string
   cwd: string
+  onFocusTerminal?: () => void
 }
 
-export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd }: DiffPanelProps) {
+export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, onFocusTerminal }: DiffPanelProps) {
   // Track the terminal's current working directory
   const [terminalCwd, setTerminalCwd] = useState(initialCwd)
   const cwdRef = useRef(terminalCwd)
@@ -48,6 +49,12 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd }:
     selectFile,
     refresh,
   } = useGitDiff({ sessionId, cwd: terminalCwd })
+
+  // Wrapper that selects the file and returns focus to terminal
+  const handleSelectFile = useCallback((path: string) => {
+    selectFile(path)
+    onFocusTerminal?.()
+  }, [selectFile, onFocusTerminal])
 
   if (error) {
     return (
@@ -116,7 +123,7 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd }:
           <FileList
             files={files}
             selectedFile={selectedFile}
-            onSelectFile={selectFile}
+            onSelectFile={handleSelectFile}
             isLoading={isLoading}
           />
         </div>

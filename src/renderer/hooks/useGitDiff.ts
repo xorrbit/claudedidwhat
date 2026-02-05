@@ -168,7 +168,16 @@ export function useGitDiff({ cwd }: UseGitDiffOptions): UseGitDiffReturn {
   }, [loadFiles])
 
   const selectFile = useCallback((path: string) => {
-    setSelectedFile(path)
+    // Check cache first for instant switching
+    const cached = diffCache.current.get(path)
+    if (cached) {
+      // Update both states together to avoid intermediate render with stale content
+      setSelectedFile(path)
+      setDiffContent(cached)
+      setIsDiffLoading(false)
+    } else {
+      setSelectedFile(path)
+    }
   }, [])
 
   const refresh = useCallback(() => {
