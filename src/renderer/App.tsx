@@ -105,7 +105,11 @@ function AppContent() {
               key={session.id}
               className={session.id === activeSessionId ? 'h-full' : 'hidden'}
             >
-              <Session sessionId={session.id} cwd={session.cwd} />
+              <Session
+                sessionId={session.id}
+                cwd={session.cwd}
+                isActive={session.id === activeSessionId}
+              />
             </div>
           ))
         ) : (
