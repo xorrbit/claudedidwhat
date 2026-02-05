@@ -4,6 +4,7 @@ import { Session } from '@shared/types'
 interface SessionContextType {
   sessions: Session[]
   activeSessionId: string | null
+  sessionCwds: Map<string, string>  // Track current CWD per session
   createSession: (cwd?: string) => Promise<void>
   closeSession: (id: string) => void
   setActiveSession: (id: string) => void
@@ -43,6 +44,7 @@ async function getDefaultDirectory(): Promise<string> {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Session[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [sessionCwds, setSessionCwds] = useState<Map<string, string>>(new Map())
   const initialSessionCreated = useRef(false)
 
   const createSession = useCallback(async (cwd?: string) => {
@@ -102,47 +104,74 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [createSession])
 
-  // Poll for branch changes and update session names
+  // Poll for CWD/branch changes and update session names
   useEffect(() => {
     if (sessions.length === 0) return
 
-    const updateSessionNames = async () => {
-      const updates: { id: string; name: string }[] = []
+    let isUpdating = false
 
-      for (const session of sessions) {
-        try {
-          // Get current cwd from terminal
-          const currentCwd = await window.electronAPI.pty.getCwd(session.id)
-          const cwd = currentCwd || session.cwd
+    const updateSessions = async () => {
+      // Skip if hidden or already updating
+      if (document.hidden || isUpdating) return
+      isUpdating = true
 
-          // Get current branch
-          const branch = await window.electronAPI.git.getCurrentBranch(cwd)
-          const newName = getSessionName(branch, cwd)
+      try {
+        const nameUpdates: { id: string; name: string }[] = []
+        const cwdUpdates = new Map<string, string>()
 
-          if (newName !== session.name) {
-            updates.push({ id: session.id, name: newName })
+        for (const session of sessions) {
+          try {
+            // Get current cwd from terminal
+            const currentCwd = await window.electronAPI.pty.getCwd(session.id)
+            const cwd = currentCwd || session.cwd
+
+            // Track CWD
+            cwdUpdates.set(session.id, cwd)
+
+            // Get current branch
+            const branch = await window.electronAPI.git.getCurrentBranch(cwd)
+            const newName = getSessionName(branch, cwd)
+
+            if (newName !== session.name) {
+              nameUpdates.push({ id: session.id, name: newName })
+            }
+          } catch {
+            // Ignore errors
           }
-        } catch {
-          // Ignore errors
         }
-      }
 
-      if (updates.length > 0) {
-        setSessions((prev) =>
-          prev.map((s) => {
-            const update = updates.find((u) => u.id === s.id)
-            return update ? { ...s, name: update.name } : s
-          })
-        )
+        // Update CWDs
+        setSessionCwds(cwdUpdates)
+
+        // Update names if changed
+        if (nameUpdates.length > 0) {
+          setSessions((prev) =>
+            prev.map((s) => {
+              const update = nameUpdates.find((u) => u.id === s.id)
+              return update ? { ...s, name: update.name } : s
+            })
+          )
+        }
+      } finally {
+        isUpdating = false
       }
     }
 
-    // Poll every 2 seconds
-    const interval = setInterval(updateSessionNames, 2000)
+    // Poll every 5 seconds (reduced from 2s)
+    const interval = setInterval(updateSessions, 5000)
     // Also run immediately
-    updateSessionNames()
+    updateSessions()
 
-    return () => clearInterval(interval)
+    // Refresh when tab becomes visible
+    const handleVisibility = () => {
+      if (!document.hidden) updateSessions()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [sessions.length])
 
   return (
@@ -150,6 +179,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       value={{
         sessions,
         activeSessionId,
+        sessionCwds,
         createSession,
         closeSession,
         setActiveSession,

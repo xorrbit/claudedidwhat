@@ -8,21 +8,42 @@ export class GitService {
   private mainBranchCache = new Map<string, { branch: string; timestamp: number }>()
   private static MAIN_BRANCH_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
+  // Cache SimpleGit instances per directory
+  private gitInstances = new Map<string, SimpleGit>()
+
+  // Cache git repo check (directories rarely become/stop being git repos)
+  private gitRepoCache = new Map<string, { isRepo: boolean; timestamp: number }>()
+  private static GIT_REPO_CACHE_TTL = 30 * 1000 // 30 seconds
+
   /**
-   * Check if a directory is a git repository.
+   * Check if a directory is a git repository (cached).
    */
   private isGitRepo(dir: string): boolean {
-    return existsSync(join(dir, '.git'))
+    const cached = this.gitRepoCache.get(dir)
+    if (cached && Date.now() - cached.timestamp < GitService.GIT_REPO_CACHE_TTL) {
+      return cached.isRepo
+    }
+    const isRepo = existsSync(join(dir, '.git'))
+    this.gitRepoCache.set(dir, { isRepo, timestamp: Date.now() })
+    return isRepo
   }
 
   /**
-   * Get a SimpleGit instance for a directory.
+   * Get a cached SimpleGit instance for a directory.
    */
   private getGit(dir: string): SimpleGit | null {
     if (!this.isGitRepo(dir)) {
+      // Clean up cached instance if directory is no longer a repo
+      this.gitInstances.delete(dir)
       return null
     }
-    return simpleGit(dir)
+
+    let git = this.gitInstances.get(dir)
+    if (!git) {
+      git = simpleGit(dir)
+      this.gitInstances.set(dir, git)
+    }
+    return git
   }
 
   /**

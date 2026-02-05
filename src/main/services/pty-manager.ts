@@ -1,8 +1,11 @@
 import * as pty from 'node-pty'
 import { platform } from 'os'
 import { existsSync, readlinkSync } from 'fs'
-import { execSync } from 'child_process'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { detectShell } from './shell'
+
+const execAsync = promisify(exec)
 
 interface PtyCallbacks {
   onData: (data: string) => void
@@ -14,8 +17,16 @@ interface PtyInstance {
   callbacks: PtyCallbacks
 }
 
+interface CwdCache {
+  cwd: string
+  timestamp: number
+}
+
 export class PtyManager {
   private instances: Map<string, PtyInstance> = new Map()
+  // Cache CWD results to avoid repeated lsof calls
+  private cwdCache: Map<string, CwdCache> = new Map()
+  private static CWD_CACHE_TTL = 1000 // 1 second
 
   /**
    * Spawn a new PTY for a session.
@@ -118,40 +129,53 @@ export class PtyManager {
 
   /**
    * Get the current working directory of a PTY process.
+   * Results are cached briefly to avoid repeated system calls.
    */
-  getCwd(sessionId: string): string | null {
+  async getCwd(sessionId: string): Promise<string | null> {
     const instance = this.instances.get(sessionId)
     if (!instance) return null
 
     const pid = instance.pty.pid
     if (!pid) return null
 
-    // On Linux, read the cwd from /proc/<pid>/cwd
+    // Check cache first
+    const cached = this.cwdCache.get(sessionId)
+    if (cached && Date.now() - cached.timestamp < PtyManager.CWD_CACHE_TTL) {
+      return cached.cwd
+    }
+
+    let cwd: string | null = null
+
+    // On Linux, read the cwd from /proc/<pid>/cwd (fast, sync is fine)
     if (platform() === 'linux') {
       try {
-        return readlinkSync(`/proc/${pid}/cwd`)
+        cwd = readlinkSync(`/proc/${pid}/cwd`)
       } catch {
         return null
       }
     }
 
-    // On macOS, use lsof to get the cwd
+    // On macOS, use lsof to get the cwd (async to avoid blocking main thread)
     if (platform() === 'darwin') {
       try {
         // -a = AND conditions, -d cwd = only cwd file descriptor, -p = process ID
         // -F n = output format with 'n' prefix for name field
-        const output = execSync(`lsof -a -d cwd -p ${pid} -F n 2>/dev/null`, {
-          encoding: 'utf-8',
+        const { stdout } = await execAsync(`lsof -a -d cwd -p ${pid} -F n 2>/dev/null`, {
           timeout: 1000,
         })
         // Output format: "p<pid>\nn<path>\n" - extract line starting with 'n'
-        const match = output.match(/^n(.+)$/m)
-        return match ? match[1] : null
+        const match = stdout.match(/^n(.+)$/m)
+        cwd = match ? match[1] : null
       } catch {
         return null
       }
     }
 
-    return null
+    // Cache the result
+    if (cwd) {
+      this.cwdCache.set(sessionId, { cwd, timestamp: Date.now() })
+    }
+
+    return cwd
   }
 }

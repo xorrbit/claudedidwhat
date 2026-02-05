@@ -1,6 +1,7 @@
-import { memo, useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useCallback } from 'react'
 import { useGitDiff } from '../../hooks/useGitDiff'
 import { useResizable } from '../../hooks/useResizable'
+import { useSessionContext } from '../../context/SessionContext'
 import { FileList } from './FileList'
 import { DiffView } from './DiffView'
 
@@ -11,34 +12,9 @@ interface DiffPanelProps {
 }
 
 export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, onFocusTerminal }: DiffPanelProps) {
-  // Track the terminal's current working directory
-  const [terminalCwd, setTerminalCwd] = useState(initialCwd)
-  const cwdRef = useRef(terminalCwd)
-
-  // Keep ref in sync
-  useEffect(() => {
-    cwdRef.current = terminalCwd
-  }, [terminalCwd])
-
-  // Poll for terminal cwd changes
-  useEffect(() => {
-    const pollCwd = async () => {
-      try {
-        const cwd = await window.electronAPI.pty.getCwd(sessionId)
-        if (cwd && cwd !== cwdRef.current) {
-          setTerminalCwd(cwd)
-        }
-      } catch {
-        // Ignore errors
-      }
-    }
-
-    // Poll immediately and then every 2 seconds
-    pollCwd()
-    const interval = setInterval(pollCwd, 2000)
-
-    return () => clearInterval(interval)
-  }, [sessionId])
+  // Get current CWD from context (tracked centrally to avoid duplicate polling)
+  const { sessionCwds } = useSessionContext()
+  const terminalCwd = sessionCwds.get(sessionId) || initialCwd
 
   const {
     files,
