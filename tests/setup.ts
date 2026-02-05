@@ -47,6 +47,10 @@ const mockElectronAPI = {
     onCloseTab: vi.fn(() => () => {}),
     onShowHelp: vi.fn(() => () => {}),
   },
+  grammar: {
+    scan: vi.fn().mockResolvedValue({ grammars: [], errors: [] }),
+    getOnigWasm: vi.fn().mockResolvedValue(null),
+  },
   window: {
     minimize: vi.fn(),
     maximize: vi.fn(),

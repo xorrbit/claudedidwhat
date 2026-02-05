@@ -3,6 +3,7 @@ import {
   PTY_CHANNELS,
   GIT_CHANNELS,
   FS_CHANNELS,
+  GRAMMAR_CHANNELS,
   PtySpawnOptions,
   PtyResizeOptions,
   ChangedFile,
@@ -100,6 +101,11 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.on('menu:showHelp', listener)
       return () => ipcRenderer.removeListener('menu:showHelp', listener)
     },
+  },
+
+  grammar: {
+    scan: () => ipcRenderer.invoke(GRAMMAR_CHANNELS.SCAN),
+    getOnigWasm: () => ipcRenderer.invoke(GRAMMAR_CHANNELS.GET_ONIG_WASM),
   },
 
   window: {

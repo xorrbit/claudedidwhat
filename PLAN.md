@@ -144,135 +144,53 @@ export function registerGrammarHandlers(ipcMain: IpcMain) {
 
 ---
 
-### Task 6: Expose grammar API in preload bridge
+### Task 6: Expose grammar API in preload bridge ✅
 
 **File:** `src/preload/index.ts`
 
-Add `grammar` namespace to the `electronAPI` object:
-```typescript
-grammar: {
-  scan: (): Promise<GrammarScanResult> =>
-    ipcRenderer.invoke(GRAMMAR_CHANNELS.SCAN),
-  getOnigWasm: (): Promise<Uint8Array | null> =>
-    ipcRenderer.invoke(GRAMMAR_CHANNELS.GET_ONIG_WASM),
-},
-```
-
-Import `GRAMMAR_CHANNELS` and `GrammarScanResult` from `@shared/types`.
+**Done:** Added `GRAMMAR_CHANNELS` to imports. Added `grammar` namespace with `scan` and `getOnigWasm` methods to the `electronAPI` object. Type-checks cleanly.
 
 ---
 
-### Task 7: Create TextMateService (renderer process)
+### Task 7: Create TextMateService (renderer process) ✅
 
 Core renderer-side module that initializes vscode-textmate/vscode-oniguruma and wires grammars into Monaco.
 
 **New file:** `src/renderer/lib/textmate.ts`
 
-Class: `TextMateService` (exported as singleton)
-
-**`initialize(): Promise<void>`** (idempotent, called once at startup):
-1. Call `window.electronAPI.grammar.getOnigWasm()` — get wasm binary
-2. If null, log warning and return (TextMate disabled, Monarch used)
-3. Call `loadWASM(wasmBinary.buffer)` from `vscode-oniguruma`
-4. Call `window.electronAPI.grammar.scan()` — get grammar data
-5. Log any `errors[]` from scan result
-6. If no grammars, return early
-7. Build lookup maps: `scopeName → GrammarContribution`, `fileExt → languageId`
-8. Create `vscode-textmate` `Registry` with `onigLib` and `loadGrammar` callback
-9. Wire each grammar into Monaco (see below)
-10. Set `initialized = true`
-
-**`wireGrammarsToMonaco(grammars)`:**
-- Group grammars by `languageId` (first scope per language wins)
-- For each language:
-  - Register language with `monaco.languages.register()` if not already known
-  - Load grammar from registry: `await registry.loadGrammar(scopeName)`
-  - Create a token provider using `TokenizerState` (wraps `StateStack` → `IState`)
-  - Call `monaco.languages.setTokensProvider(languageId, provider)`
-
-**`TokenizerState` inner class:**
-- Implements `monaco.languages.IState`
-- Wraps `vscode-textmate`'s `StateStack`
-- `clone()` and `equals()` methods
-
-**`getLanguageForFile(filePath: string): string | null`:**
-- Extracts extension, looks up in `extToLanguage` map
-- Returns language ID if TextMate grammar covers it, null otherwise
-
-**`hasGrammar(languageId: string): boolean`**
+**Done:** Created `TextMateService` class exported as singleton. Implements `initialize()` (idempotent, handles IPC wasm serialization), `wireGrammarsToMonaco()` (groups by languageId, registers languages, sets token providers), `TokenizerState` (wraps `StateStack` as `monaco.languages.IState`), `getLanguageForFile()` (extension→language lookup), and `hasGrammar()`. All errors caught gracefully — falls back to Monarch tokenizers. Compiles cleanly.
 
 ---
 
-### Task 8: Initialize TextMateService at app startup
+### Task 8: Initialize TextMateService at app startup ✅
 
 **File:** `src/renderer/main.tsx`
 
-Add fire-and-forget initialization before `ReactDOM.createRoot()`:
-```typescript
-import { textMateService } from './lib/textmate'
-
-textMateService.initialize().catch(err => {
-  console.warn('TextMate initialization failed:', err)
-})
-```
-
-Non-blocking — the app renders immediately. Grammars load in the background.
+**Done:** Added fire-and-forget `textMateService.initialize()` call before `ReactDOM.createRoot()`. Non-blocking — app renders immediately while grammars load in the background. Compiles cleanly.
 
 ---
 
-### Task 9: Update DiffView language detection
+### Task 9: Update DiffView language detection ✅
 
 **File:** `src/renderer/components/diff/DiffView.tsx`
 
-Update `getLanguage()` to check TextMateService first:
-```typescript
-import { textMateService } from '../../lib/textmate'
-
-function getLanguage(filePath: string | null): string {
-  if (!filePath) return 'plaintext'
-
-  // Check TextMate grammars first
-  const tmLanguage = textMateService.getLanguageForFile(filePath)
-  if (tmLanguage) return tmLanguage
-
-  // Fall back to existing hardcoded map
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  const languageMap: Record<string, string> = { /* existing map unchanged */ }
-  return ext ? languageMap[ext] || 'plaintext' : 'plaintext'
-}
-```
+**Done:** Added `textMateService` import. Updated `getLanguage()` to check `textMateService.getLanguageForFile()` first, falling back to the existing hardcoded `languageMap`. Compiles cleanly.
 
 ---
 
-### Task 10: Update test mocks
+### Task 10: Update test mocks ✅
 
 **File:** `tests/setup.ts`
 
-Add `grammar` mock to `mockElectronAPI`:
-```typescript
-grammar: {
-  scan: vi.fn().mockResolvedValue({ grammars: [], errors: [] }),
-  getOnigWasm: vi.fn().mockResolvedValue(null),
-},
-```
+**Done:** Added `grammar` mock (returning empty grammars and null wasm) to `mockElectronAPI`. All 126 existing tests pass.
 
 ---
 
-### Task 11: Add unit tests for GrammarScanner
+### Task 11: Add unit tests for GrammarScanner ✅
 
 **New file:** `tests/unit/main/services/grammar-scanner.test.ts`
 
-Tests:
-- **Returns empty result when extensions dir doesn't exist** — mock `fs.access` to reject, verify returns `{ grammars: [], errors: [...] }`
-- **Returns empty result when extensions.json is missing** — mock dir exists but `readFile` for extensions.json throws
-- **Parses extensions.json and reads grammar contributions** — mock a valid extensions.json with 2 extensions, mock their package.json files with `contributes.grammars`, mock grammar file reads, verify correct `GrammarContribution[]` output
-- **Skips extensions with no contributes.grammars** — extension with no grammars field in package.json is silently skipped
-- **Handles malformed package.json** — invalid JSON in package.json adds to errors[], continues
-- **Handles missing grammar file** — grammar path in package.json points to non-existent file, adds to errors[], continues
-- **Resolves file extensions from contributes.languages** — languages entry with `extensions: [".py", ".pyw"]` is correctly mapped
-- **Caches scan result** — second call returns same result without re-reading files
-- **getOnigWasm returns wasm binary** — mock successful read of onig.wasm
-- **getOnigWasm returns null when file not found** — mock failed read
+**Done:** Added 12 tests covering: empty result when extensions dir missing, missing extensions.json, successful grammar parsing, skipping extensions without grammars, malformed package.json handling, missing grammar files, file extension resolution from contributes.languages, scan caching, location._fsPath resolution, getOnigWasm success/failure/caching. Uses `vi.hoisted()` + `vi.mock()` for CJS-compatible mocking of `os` and `fs/promises`. All 138 tests pass.
 
 ---
 

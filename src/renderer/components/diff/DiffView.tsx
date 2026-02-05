@@ -1,5 +1,6 @@
 import { memo, lazy, Suspense, useMemo } from 'react'
 import { DiffContent } from '@shared/types'
+import { textMateService } from '../../lib/textmate'
 import { loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
 
@@ -21,6 +22,11 @@ interface DiffViewProps {
 function getLanguage(filePath: string | null): string {
   if (!filePath) return 'plaintext'
 
+  // Check TextMate grammars first
+  const tmLanguage = textMateService.getLanguageForFile(filePath)
+  if (tmLanguage) return tmLanguage
+
+  // Fall back to hardcoded map
   const ext = filePath.split('.').pop()?.toLowerCase()
 
   const languageMap: Record<string, string> = {
