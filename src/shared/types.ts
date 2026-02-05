@@ -86,6 +86,11 @@ export interface ElectronAPI {
     onFileChanged: (callback: (event: FileChangeEvent) => void) => () => void
     selectDirectory: () => Promise<string | null>
   }
+  menu: {
+    onNewTab: (callback: () => void) => () => void
+    onCloseTab: (callback: () => void) => () => void
+    onShowHelp: (callback: () => void) => () => void
+  }
 }
 
 declare global {

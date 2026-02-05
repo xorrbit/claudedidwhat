@@ -3,6 +3,7 @@ import { join } from 'path'
 import { registerPtyHandlers } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers } from './ipc/fs'
+import { createAppMenu } from './menu'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -61,6 +62,7 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(() => {
+  createAppMenu()
   registerIpcHandlers()
   createWindow()
 

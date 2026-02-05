@@ -74,6 +74,24 @@ const electronAPI: ElectronAPI = {
     selectDirectory: (): Promise<string | null> =>
       ipcRenderer.invoke(FS_CHANNELS.SELECT_DIRECTORY),
   },
+
+  menu: {
+    onNewTab: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('menu:newTab', listener)
+      return () => ipcRenderer.removeListener('menu:newTab', listener)
+    },
+    onCloseTab: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('menu:closeTab', listener)
+      return () => ipcRenderer.removeListener('menu:closeTab', listener)
+    },
+    onShowHelp: (callback: () => void) => {
+      const listener = () => callback()
+      ipcRenderer.on('menu:showHelp', listener)
+      return () => ipcRenderer.removeListener('menu:showHelp', listener)
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
