@@ -69,11 +69,15 @@ Changes are detected in real-time as you edit files. The tab name automatically 
 
 ### Performance
 
-The diff panel is optimized for large repositories and multi-tab workflows:
+Optimized for large repositories and multi-tab workflows:
 
 - **Event-driven updates**: Uses native file system events (inotify/FSEvents) instead of polling, so git status only refreshes when files actually change
 - **LRU diff cache**: Recently viewed diffs are cached for instant file switching, with automatic eviction to bound memory usage
 - **Visibility-aware**: Background tabs pause file watching and git operations until focused
+- **Centralized polling**: Single source for terminal CWD tracking across all tabs, reduced frequency with caching
+- **Cached git instances**: SimpleGit instances and repo checks are reused instead of recreated per operation
+- **Async I/O**: System calls (like macOS `lsof`) run asynchronously to avoid blocking the main thread
+- **Memoized components**: React components use `memo` and CSS-based hover states to minimize re-renders
 - **Smart ignores**: Skips `node_modules`, `.git`, `dist`, `build`, and other generated directories
 
 ## Tech Stack
