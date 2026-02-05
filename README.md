@@ -11,7 +11,6 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 - **Multi-tab support**: Manage multiple sessions with keyboard shortcuts
 - **Real-time git diff**: Automatically detects and displays file changes with side-by-side file list
 - **Monaco-powered diff view**: Syntax highlighting with side-by-side comparison
-- **Responsive window**: Window size adapts to your screen (80% of display, centered)
 - **Cross-platform**: Works on macOS, Windows, and Linux
 - **Obsidian Studio theme**: A refined dark theme with warm amber accents, JetBrains Mono typography, and polished micro-interactions
 

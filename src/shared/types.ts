@@ -96,6 +96,11 @@ export interface ElectronAPI {
     onCloseTab: (callback: () => void) => () => void
     onShowHelp: (callback: () => void) => () => void
   }
+  window: {
+    minimize: () => void
+    maximize: () => void
+    close: () => void
+  }
 }
 
 declare global {

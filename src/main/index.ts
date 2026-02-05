@@ -38,7 +38,7 @@ function createWindow() {
       contextIsolation: true,
       sandbox: false, // Required for node-pty
     },
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    frame: false,
     show: false,
   })
 
@@ -78,6 +78,23 @@ function registerIpcHandlers() {
       return null
     }
     return result.filePaths[0]
+  })
+
+  // Window controls
+  ipcMain.on('window:minimize', () => {
+    mainWindow?.minimize()
+  })
+
+  ipcMain.on('window:maximize', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow?.maximize()
+    }
+  })
+
+  ipcMain.on('window:close', () => {
+    mainWindow?.close()
   })
 }
 

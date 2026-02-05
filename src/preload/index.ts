@@ -101,6 +101,12 @@ const electronAPI: ElectronAPI = {
       return () => ipcRenderer.removeListener('menu:showHelp', listener)
     },
   },
+
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    maximize: () => ipcRenderer.send('window:maximize'),
+    close: () => ipcRenderer.send('window:close'),
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
