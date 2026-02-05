@@ -1,21 +1,37 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
-interface UseResizableOptions {
+interface UseResizableRatioOptions {
+  mode?: 'ratio'
   initialRatio?: number
   minRatio?: number
   maxRatio?: number
 }
 
+interface UseResizablePixelOptions {
+  mode: 'pixel'
+  initialWidth?: number
+  minWidth?: number
+  maxWidth?: number
+}
+
+type UseResizableOptions = UseResizableRatioOptions | UseResizablePixelOptions
+
 interface UseResizableReturn {
   ratio: number
+  width: number
   isDragging: boolean
   handleMouseDown: (e: React.MouseEvent) => void
 }
 
 export function useResizable(options: UseResizableOptions = {}): UseResizableReturn {
-  const { initialRatio = 0.6, minRatio = 0.2, maxRatio = 0.8 } = options
+  const isPixel = options.mode === 'pixel'
 
-  const [ratio, setRatio] = useState(initialRatio)
+  const [ratio, setRatio] = useState(
+    isPixel ? 0 : ((options as UseResizableRatioOptions).initialRatio ?? 0.6)
+  )
+  const [width, setWidth] = useState(
+    isPixel ? ((options as UseResizablePixelOptions).initialWidth ?? 250) : 0
+  )
   const [isDragging, setIsDragging] = useState(false)
   const containerRef = useRef<HTMLElement | null>(null)
 
@@ -31,13 +47,17 @@ export function useResizable(options: UseResizableOptions = {}): UseResizableRet
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return
-
       const rect = containerRef.current.getBoundingClientRect()
-      const newRatio = (e.clientX - rect.left) / rect.width
 
-      // Clamp ratio to min/max bounds
-      const clampedRatio = Math.min(maxRatio, Math.max(minRatio, newRatio))
-      setRatio(clampedRatio)
+      if (isPixel) {
+        const { minWidth = 120, maxWidth = 500 } = options as UseResizablePixelOptions
+        const newWidth = e.clientX - rect.left
+        setWidth(Math.min(maxWidth, Math.max(minWidth, newWidth)))
+      } else {
+        const { minRatio = 0.2, maxRatio = 0.8 } = options as UseResizableRatioOptions
+        const newRatio = (e.clientX - rect.left) / rect.width
+        setRatio(Math.min(maxRatio, Math.max(minRatio, newRatio)))
+      }
     }
 
     const handleMouseUp = () => {
@@ -53,7 +73,7 @@ export function useResizable(options: UseResizableOptions = {}): UseResizableRet
       document.removeEventListener('mouseup', handleMouseUp)
       document.body.classList.remove('resizing')
     }
-  }, [isDragging, minRatio, maxRatio])
+  }, [isDragging, isPixel, options])
 
-  return { ratio, isDragging, handleMouseDown }
+  return { ratio, width, isDragging, handleMouseDown }
 }

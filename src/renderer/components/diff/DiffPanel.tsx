@@ -27,10 +27,11 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, o
     refresh,
   } = useGitDiff({ sessionId, cwd: terminalCwd })
 
-  const { ratio, isDragging, handleMouseDown } = useResizable({
-    initialRatio: 0.35,
-    minRatio: 0.15,
-    maxRatio: 0.5,
+  const { width: fileListWidth, isDragging, handleMouseDown } = useResizable({
+    mode: 'pixel',
+    initialWidth: 250,
+    minWidth: 120,
+    maxWidth: 400,
   })
 
   // Wrapper that selects the file and returns focus to terminal
@@ -63,7 +64,7 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, o
       {/* File list sidebar */}
       <div
         className="flex-shrink-0 flex flex-col bg-obsidian-surface/30"
-        style={{ width: `${ratio * 100}%` }}
+        style={{ width: fileListWidth }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-obsidian-border-subtle">
@@ -151,8 +152,7 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, o
 
       {/* Diff view */}
       <div
-        className="min-h-0 min-w-0 bg-obsidian-bg"
-        style={{ width: `${(1 - ratio) * 100}%` }}
+        className="min-h-0 min-w-0 bg-obsidian-bg flex-1"
       >
         <DiffView
           filePath={selectedFile}
