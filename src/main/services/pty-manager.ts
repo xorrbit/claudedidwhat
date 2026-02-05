@@ -1,6 +1,7 @@
 import * as pty from 'node-pty'
 import { platform } from 'os'
 import { existsSync, readlinkSync } from 'fs'
+import { execSync } from 'child_process'
 import { detectShell } from './shell'
 
 interface PtyCallbacks {
@@ -134,8 +135,23 @@ export class PtyManager {
       }
     }
 
-    // On macOS, we could use lsof but it's slower
-    // For now, return null on non-Linux platforms
+    // On macOS, use lsof to get the cwd
+    if (platform() === 'darwin') {
+      try {
+        // -a = AND conditions, -d cwd = only cwd file descriptor, -p = process ID
+        // -F n = output format with 'n' prefix for name field
+        const output = execSync(`lsof -a -d cwd -p ${pid} -F n`, {
+          encoding: 'utf-8',
+          timeout: 1000,
+        })
+        // Output format: "p<pid>\nn<path>\n" - extract line starting with 'n'
+        const match = output.match(/^n(.+)$/m)
+        return match ? match[1] : null
+      } catch {
+        return null
+      }
+    }
+
     return null
   }
 }

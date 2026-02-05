@@ -34,10 +34,9 @@ export class FileWatcher {
       ],
       persistent: true,
       ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 100,
-        pollInterval: 100,
-      },
+      // Use polling for cross-platform reliability
+      usePolling: true,
+      interval: 5000,
     })
 
     const instance: WatcherInstance = {
