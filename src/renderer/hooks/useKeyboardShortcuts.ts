@@ -44,15 +44,10 @@ export function useKeyboardShortcuts({
         e.stopPropagation()
         const newSessionId = e.shiftKey ? onPrevTab() : onNextTab()
         // Focus terminal after a delay to let Tab key processing complete
-        // Use longer delay on Linux where Tab key can interfere with focus
         if (onTabSwitched && newSessionId) {
           setTimeout(() => {
             onTabSwitched(newSessionId)
-            // Try again in case something stole focus
-            setTimeout(() => {
-              onTabSwitched(newSessionId)
-            }, 50)
-          }, 150)
+          }, 100)
         }
         return
       }
@@ -75,8 +70,7 @@ export function useKeyboardShortcuts({
   )
 
   useEffect(() => {
-    // Use capture phase to catch events before other handlers
-    window.addEventListener('keydown', handleKeyDown, true)
-    return () => window.removeEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 }
