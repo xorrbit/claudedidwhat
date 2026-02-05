@@ -15,6 +15,14 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.d.ts', 'src/main/**/*'],
     },
+    deps: {
+      optimizer: {
+        web: {
+          // Don't try to optimize monaco-editor for tests
+          exclude: ['monaco-editor'],
+        },
+      },
+    },
   },
   resolve: {
     alias: {
@@ -22,6 +30,8 @@ export default defineConfig({
       '@renderer': resolve(__dirname, 'src/renderer'),
       '@main': resolve(__dirname, 'src/main'),
       '@shared': resolve(__dirname, 'src/shared'),
+      // Mock monaco-editor in tests
+      'monaco-editor': resolve(__dirname, 'tests/__mocks__/monaco-editor.ts'),
     },
   },
 })

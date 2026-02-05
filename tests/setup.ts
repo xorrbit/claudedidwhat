@@ -1,6 +1,22 @@
 import { vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
+// Mock monaco-editor before any component imports it
+vi.mock('monaco-editor', () => ({}))
+
+vi.mock('@monaco-editor/react', () => ({
+  loader: {
+    config: vi.fn(),
+  },
+  DiffEditor: vi.fn(({ language }: { language: string }) => {
+    const React = require('react')
+    return React.createElement('div', {
+      'data-testid': 'mock-diff-editor',
+      'data-language': language,
+    }, 'Mock Diff Editor')
+  }),
+}))
+
 // Mock window.electronAPI for renderer tests
 const mockElectronAPI = {
   pty: {

@@ -259,4 +259,186 @@ describe('useSessions (SessionContext)', () => {
 
     consoleSpy.mockRestore()
   })
+
+  describe('session naming', () => {
+    it('uses branch name when not main/master', async () => {
+      // Mock git to return a feature branch
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue('feature/awesome')
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('/test/project')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('feature/awesome')
+    })
+
+    it('uses directory name when branch is main', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue('main')
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('/test/myproject')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('myproject')
+    })
+
+    it('uses directory name when branch is master', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue('master')
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('/test/legacy-project')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('legacy-project')
+    })
+
+    it('uses directory name when not a git repo', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue(null)
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('/home/user/documents')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('documents')
+    })
+
+    it('uses directory name when git throws error', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockRejectedValue(new Error('Not a git repo'))
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('/test/folder')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('folder')
+    })
+
+    it('handles Windows-style paths', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue(null)
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      await act(async () => {
+        await result.current.createSession('C:\\Users\\Test\\Projects\\MyApp')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      expect(newSession.name).toBe('MyApp')
+    })
+
+    it('handles paths ending with separator', async () => {
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue(null)
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
+
+      // When path ends with /, the last part is empty, so it returns the path itself
+      await act(async () => {
+        await result.current.createSession('/test/folder/')
+      })
+
+      const newSession = result.current.sessions[result.current.sessions.length - 1]
+      // The getDirectoryName returns the last non-empty part or the full path
+      expect(newSession.name).toBeTruthy()
+    })
+  })
+
+  describe('CWD tracking', () => {
+    it('updates sessionCwds when polling', async () => {
+      vi.useFakeTimers()
+      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/new/working/dir')
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue(null)
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      // Wait for initial session with fake timers
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100)
+      })
+
+      expect(result.current.sessions).toHaveLength(1)
+
+      // Trigger the polling interval (5 seconds)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000)
+      })
+
+      const sessionId = result.current.sessions[0].id
+      expect(result.current.sessionCwds.get(sessionId)).toBe('/new/working/dir')
+
+      vi.useRealTimers()
+    })
+
+    it('updates session name when branch changes', async () => {
+      vi.useFakeTimers()
+      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/test/project')
+
+      // Initially return main
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue('main')
+
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+      // Wait for initial session
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100)
+      })
+
+      expect(result.current.sessions).toHaveLength(1)
+      // Session should use directory name initially (from cwd mock: /test/project)
+      expect(result.current.sessions[0].name).toBe('project')
+
+      // Now switch to a feature branch
+      vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue('feature/new-thing')
+
+      // Trigger poll (5 seconds)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000)
+      })
+
+      expect(result.current.sessions[0].name).toBe('feature/new-thing')
+
+      vi.useRealTimers()
+    })
+  })
 })
