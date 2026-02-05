@@ -4,6 +4,32 @@ A multiplatform terminal emulator with integrated code review/diff panel for Cla
 
 ---
 
+## Progress Tracker
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1: Project Scaffolding | ✅ COMPLETE | All configs, dependencies, project structure |
+| Phase 2: Core Layout Components | ✅ COMPLETE | TabBar, Tab, ResizableSplit, Session |
+| Phase 3: Terminal Integration | ✅ COMPLETE | xterm.js, node-pty, shell detection |
+| Phase 4: Git Integration | ✅ COMPLETE | simple-git, file watcher, diff content |
+| Phase 5: Diff Panel UI | ✅ COMPLETE | FileList, DiffView with Monaco |
+| Phase 6: Session Management | ✅ COMPLETE | Directory picker, keyboard shortcuts |
+| Phase 7: Polish and Packaging | 🔄 IN PROGRESS | Menu done, help overlay done; needs icons, packaging, tests |
+
+### Commits
+1. `00d002b` - Add detailed implementation plan
+2. `5f5fa4e` - Implement complete project scaffold (Phase 1-5)
+3. `4aebd68` - Add keyboard shortcuts and application menu (Phase 6-7 partial)
+
+### Remaining Work (Phase 7)
+- [ ] Task 7.3: Configure App Icons (create icon files)
+- [ ] Task 7.4: Configure Electron Builder (test packaging)
+- [ ] Task 7.5: Final Testing and Bug Fixes
+- [ ] Unit tests (not yet written)
+- [ ] E2E tests (not yet written)
+
+---
+
 ## Tech Stack Summary
 
 | Component | Technology | Purpose |
