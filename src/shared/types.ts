@@ -59,6 +59,26 @@ export interface DiffContent {
   modified: string
 }
 
+// Grammar IPC channels
+export const GRAMMAR_CHANNELS = {
+  SCAN: 'grammar:scan',
+  GET_ONIG_WASM: 'grammar:getOnigWasm',
+} as const
+
+// Grammar types
+export interface GrammarContribution {
+  scopeName: string        // e.g. "source.python"
+  languageId: string       // e.g. "python"
+  fileExtensions: string[] // e.g. [".py", ".pyw"]
+  rawContent: string       // raw grammar file content
+  grammarPath: string      // original file path (for format detection)
+}
+
+export interface GrammarScanResult {
+  grammars: GrammarContribution[]
+  errors: string[]         // non-fatal errors encountered during scan
+}
+
 // File watcher types
 export interface FileChangeEvent {
   sessionId: string
@@ -95,6 +115,10 @@ export interface ElectronAPI {
     onNewTab: (callback: () => void) => () => void
     onCloseTab: (callback: () => void) => () => void
     onShowHelp: (callback: () => void) => () => void
+  }
+  grammar: {
+    scan: () => Promise<GrammarScanResult>
+    getOnigWasm: () => Promise<Uint8Array | null>
   }
   window: {
     minimize: () => void

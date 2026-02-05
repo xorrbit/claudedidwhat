@@ -8,6 +8,7 @@ import { join } from 'path'
 import { registerPtyHandlers } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers } from './ipc/fs'
+import { registerGrammarHandlers } from './ipc/grammar'
 import { createAppMenu } from './menu'
 
 let mainWindow: BrowserWindow | null = null
@@ -66,6 +67,7 @@ function registerIpcHandlers() {
   registerPtyHandlers(ipcMain)
   registerGitHandlers(ipcMain)
   registerFsHandlers(ipcMain)
+  registerGrammarHandlers(ipcMain)
   console.log('IPC handlers registered')
 
   // Directory selection dialog
