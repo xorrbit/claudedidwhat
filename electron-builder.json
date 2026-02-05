@@ -1,6 +1,6 @@
 {
-  "appId": "com.vibediff.app",
-  "productName": "vibediff",
+  "appId": "com.claudedidwhat.app",
+  "productName": "Claude Did What?!",
   "directories": {
     "output": "release"
   },

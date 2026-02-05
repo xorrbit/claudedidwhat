@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Icon generation script for vibediff
+# Icon generation script for claudedidwhat
 # Requires: ImageMagick (convert, magick) or rsvg-convert
 #
 # This script converts the SVG icon to various formats needed for packaging:

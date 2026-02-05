@@ -123,7 +123,7 @@ export function createAppMenu(): void {
           label: 'Learn More',
           click: async () => {
             const { shell } = await import('electron')
-            await shell.openExternal('https://github.com/vibediff/vibediff')
+            await shell.openExternal('https://github.com/xorrbit/claudedidwhat')
           },
         },
       ],

@@ -1,8 +1,8 @@
-# vibediff
+# Claude Did What?!
 
 A multiplatform terminal emulator with an integrated code review/diff panel, designed for Claude Code workflows.
 
-![vibediff](resources/icon-128.png)
+![claudedidwhat](resources/icon-128.png)
 
 ## Features
 
@@ -21,8 +21,8 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 
 ```bash
 # Clone the repository
-git clone https://github.com/xorrbit/vibediff.git
-cd vibediff
+git clone https://github.com/xorrbit/claudedidwhat.git
+cd claudedidwhat
 
 # Install dependencies (automatically rebuilds native modules for Electron)
 npm install
@@ -43,7 +43,7 @@ npm run package:win     # Windows (exe)
 
 ### Pre-built Binaries
 
-Download from the [Releases](https://github.com/xorrbit/vibediff/releases) page.
+Download from the [Releases](https://github.com/xorrbit/claudedidwhat/releases) page.
 
 ## Usage
 
@@ -103,7 +103,7 @@ npm run format
 ## Project Structure
 
 ```
-vibediff/
+claudedidwhat/
 ├── src/
 │   ├── main/           # Electron main process
 │   │   ├── ipc/        # IPC handlers (pty, git, fs)

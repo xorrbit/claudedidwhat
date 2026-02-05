@@ -1,8 +1,8 @@
 {
-  "name": "vibediff",
+  "name": "claudedidwhat",
   "version": "0.1.0",
   "description": "Terminal emulator with integrated code review",
-  "author": "vibediff contributors",
+  "author": "Andrew Orr",
   "license": "MIT",
   "main": "dist/main/index.js",
   "scripts": {
