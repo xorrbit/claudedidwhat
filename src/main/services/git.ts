@@ -1,8 +1,7 @@
 import simpleGit, { SimpleGit, StatusResult } from 'simple-git'
 import { ChangedFile, DiffContent, FileStatus } from '@shared/types'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync } from 'fs'
 import { join } from 'path'
-import { minimatch } from 'minimatch'
 
 export class GitService {
   /**
@@ -20,47 +19,6 @@ export class GitService {
       return null
     }
     return simpleGit(dir)
-  }
-
-  /**
-   * Get patterns from .gitattributes that have diff=lfs (should be excluded from diff view).
-   */
-  private getLfsPatterns(dir: string): string[] {
-    const gitattributesPath = join(dir, '.gitattributes')
-    if (!existsSync(gitattributesPath)) {
-      return []
-    }
-
-    try {
-      const content = readFileSync(gitattributesPath, 'utf-8')
-      const patterns: string[] = []
-
-      for (const line of content.split('\n')) {
-        const trimmed = line.trim()
-        // Skip comments and empty lines
-        if (!trimmed || trimmed.startsWith('#')) continue
-
-        // Check if line contains diff=lfs
-        if (trimmed.includes('diff=lfs')) {
-          // Extract the pattern (first part before whitespace)
-          const pattern = trimmed.split(/\s+/)[0]
-          if (pattern) {
-            patterns.push(pattern)
-          }
-        }
-      }
-
-      return patterns
-    } catch {
-      return []
-    }
-  }
-
-  /**
-   * Check if a file path matches any of the LFS patterns.
-   */
-  private isLfsFile(filePath: string, lfsPatterns: string[]): boolean {
-    return lfsPatterns.some((pattern) => minimatch(filePath, pattern, { matchBase: true }))
   }
 
   /**
@@ -128,7 +86,6 @@ export class GitService {
 
     try {
       const base = baseBranch || (await this.getMainBranch(dir))
-      const lfsPatterns = this.getLfsPatterns(dir)
 
       // Get status for working directory changes
       const status: StatusResult = await git.status()
@@ -200,8 +157,7 @@ export class GitService {
         }
       }
 
-      // Filter out LFS files
-      return files.filter((file) => !this.isLfsFile(file.path, lfsPatterns))
+      return files
     } catch (error) {
       console.error('Error getting changed files:', error)
       return []
