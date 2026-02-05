@@ -19,25 +19,27 @@ function AppContent() {
   const [showHelp, setShowHelp] = useState(false)
   const sessionRefs = useRef<Map<string, SessionHandle>>(new Map())
 
-  // Focus the active session's terminal (called after Ctrl+Tab on keyup)
-  const focusActiveTerminal = useCallback(() => {
-    if (activeSessionId) {
-      sessionRefs.current.get(activeSessionId)?.focusTerminal()
-    }
-  }, [activeSessionId])
+  // Focus a specific session's terminal (called after Ctrl+Tab)
+  const focusSessionTerminal = useCallback((sessionId: string) => {
+    sessionRefs.current.get(sessionId)?.focusTerminal()
+  }, [])
 
   const activeIndex = sessions.findIndex((s) => s.id === activeSessionId)
 
   const handleNextTab = useCallback(() => {
-    if (sessions.length === 0) return
+    if (sessions.length === 0) return undefined
     const nextIndex = (activeIndex + 1) % sessions.length
-    setActiveSession(sessions[nextIndex].id)
+    const newSessionId = sessions[nextIndex].id
+    setActiveSession(newSessionId)
+    return newSessionId
   }, [sessions, activeIndex, setActiveSession])
 
   const handlePrevTab = useCallback(() => {
-    if (sessions.length === 0) return
+    if (sessions.length === 0) return undefined
     const prevIndex = (activeIndex - 1 + sessions.length) % sessions.length
-    setActiveSession(sessions[prevIndex].id)
+    const newSessionId = sessions[prevIndex].id
+    setActiveSession(newSessionId)
+    return newSessionId
   }, [sessions, activeIndex, setActiveSession])
 
   const handleGoToTab = useCallback(
@@ -92,7 +94,7 @@ function AppContent() {
     onPrevTab: handlePrevTab,
     onGoToTab: handleGoToTab,
     onShowHelp: () => setShowHelp(true),
-    onTabSwitched: focusActiveTerminal,
+    onTabSwitched: focusSessionTerminal,
   })
 
   return (

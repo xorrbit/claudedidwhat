@@ -1,13 +1,13 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback } from 'react'
 
 interface KeyboardShortcutsOptions {
   onNewTab: () => void
   onCloseTab: () => void
-  onNextTab: () => void
-  onPrevTab: () => void
+  onNextTab: () => string | undefined  // Returns new session ID
+  onPrevTab: () => string | undefined  // Returns new session ID
   onGoToTab: (index: number) => void
   onShowHelp?: () => void
-  onTabSwitched?: () => void
+  onTabSwitched?: (sessionId: string) => void
 }
 
 export function useKeyboardShortcuts({
@@ -19,9 +19,6 @@ export function useKeyboardShortcuts({
   onShowHelp,
   onTabSwitched,
 }: KeyboardShortcutsOptions): void {
-  // Track if we need to call onTabSwitched after Tab key is released
-  const pendingTabFocusRef = useRef(false)
-
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -45,13 +42,13 @@ export function useKeyboardShortcuts({
       if (isMod && e.key === 'Tab') {
         e.preventDefault()
         e.stopPropagation()
-        if (e.shiftKey) {
-          onPrevTab()
-        } else {
-          onNextTab()
+        const newSessionId = e.shiftKey ? onPrevTab() : onNextTab()
+        // Focus terminal after a delay to let Tab key processing complete
+        if (onTabSwitched && newSessionId) {
+          setTimeout(() => {
+            onTabSwitched(newSessionId)
+          }, 100)
         }
-        // Mark that we need to focus after Tab is released
-        pendingTabFocusRef.current = true
         return
       }
 
@@ -69,28 +66,11 @@ export function useKeyboardShortcuts({
         return
       }
     },
-    [onNewTab, onCloseTab, onNextTab, onPrevTab, onGoToTab, onShowHelp]
-  )
-
-  const handleKeyUp = useCallback(
-    (e: KeyboardEvent) => {
-      // When Tab key is released and we have a pending focus, trigger it
-      if (e.key === 'Tab' && pendingTabFocusRef.current) {
-        pendingTabFocusRef.current = false
-        e.preventDefault()
-        e.stopPropagation()
-        onTabSwitched?.()
-      }
-    },
-    [onTabSwitched]
+    [onNewTab, onCloseTab, onNextTab, onPrevTab, onGoToTab, onShowHelp, onTabSwitched]
   )
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [handleKeyDown, handleKeyUp])
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 }
