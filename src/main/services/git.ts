@@ -176,9 +176,11 @@ export class GitService {
       }
 
       // If we have a base branch, also get diff against it
+      // Use three-dot syntax to show only changes introduced by current branch
+      // (not changes made to base after branch was created)
       if (base) {
         try {
-          const diffSummary = await git.diffSummary([base, 'HEAD'])
+          const diffSummary = await git.diffSummary([`${base}...HEAD`])
           for (const file of diffSummary.files) {
             if (!addedPaths.has(file.file)) {
               let status: FileStatus = 'M'
