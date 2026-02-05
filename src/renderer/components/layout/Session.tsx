@@ -19,10 +19,11 @@ export const Session = memo(function Session({ sessionId, cwd, isActive }: Sessi
   // Focus terminal when this session becomes active
   useEffect(() => {
     if (isActive) {
-      // Small delay to ensure the terminal is visible before focusing
+      // Delay to ensure terminal is visible and Tab key processing is complete
+      // (Tab key can interfere with focus on Linux)
       const timer = setTimeout(() => {
         focusTerminal()
-      }, 10)
+      }, 50)
       return () => clearTimeout(timer)
     }
   }, [isActive, focusTerminal])

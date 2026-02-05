@@ -39,6 +39,7 @@ export function useKeyboardShortcuts({
       // Cmd/Ctrl + Shift + Tab: Previous tab
       if (isMod && e.key === 'Tab') {
         e.preventDefault()
+        e.stopPropagation()
         if (e.shiftKey) {
           onPrevTab()
         } else {
