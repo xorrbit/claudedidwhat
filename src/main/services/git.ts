@@ -22,6 +22,22 @@ export class GitService {
   }
 
   /**
+   * Get the current branch name.
+   */
+  async getCurrentBranch(dir: string): Promise<string | null> {
+    const git = this.getGit(dir)
+    if (!git) return null
+
+    try {
+      const branches = await git.branchLocal()
+      return branches.current || null
+    } catch (error) {
+      console.error('Error getting current branch:', error)
+      return null
+    }
+  }
+
+  /**
    * Detect the main branch (main, master, or default).
    */
   async getMainBranch(dir: string): Promise<string | null> {

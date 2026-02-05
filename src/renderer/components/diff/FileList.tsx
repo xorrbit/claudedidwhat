@@ -32,7 +32,7 @@ export const FileList = memo(function FileList({
   }
 
   return (
-    <div className="max-h-40 overflow-y-auto">
+    <div>
       {files.map((file) => (
         <FileListItem
           key={file.path}

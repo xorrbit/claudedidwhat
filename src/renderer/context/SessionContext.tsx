@@ -15,12 +15,20 @@ function generateId(): string {
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function getSessionName(cwd: string): string {
+function getDirectoryName(cwd: string): string {
   if (typeof cwd !== 'string') {
     return 'Terminal'
   }
   const parts = cwd.split(/[/\\]/)
   return parts[parts.length - 1] || cwd
+}
+
+function getSessionName(branch: string | null, cwd: string): string {
+  // If no branch or branch is main/master, use directory name
+  if (!branch || branch === 'main' || branch === 'master') {
+    return getDirectoryName(cwd)
+  }
+  return branch
 }
 
 async function getDefaultDirectory(): Promise<string> {
@@ -46,10 +54,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       sessionCwd = await getDefaultDirectory()
     }
 
+    // Try to get the current branch
+    let branch: string | null = null
+    try {
+      branch = await window.electronAPI.git.getCurrentBranch(sessionCwd)
+    } catch {
+      // Not a git repo or error, that's fine
+    }
+
     const newSession: Session = {
       id: generateId(),
       cwd: sessionCwd,
-      name: getSessionName(sessionCwd),
+      name: getSessionName(branch, sessionCwd),
     }
 
     setSessions((prev) => [...prev, newSession])
@@ -84,6 +100,49 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       createSession()
     }
   }, [createSession])
+
+  // Poll for branch changes and update session names
+  useEffect(() => {
+    if (sessions.length === 0) return
+
+    const updateSessionNames = async () => {
+      const updates: { id: string; name: string }[] = []
+
+      for (const session of sessions) {
+        try {
+          // Get current cwd from terminal
+          const currentCwd = await window.electronAPI.pty.getCwd(session.id)
+          const cwd = currentCwd || session.cwd
+
+          // Get current branch
+          const branch = await window.electronAPI.git.getCurrentBranch(cwd)
+          const newName = getSessionName(branch, cwd)
+
+          if (newName !== session.name) {
+            updates.push({ id: session.id, name: newName })
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+
+      if (updates.length > 0) {
+        setSessions((prev) =>
+          prev.map((s) => {
+            const update = updates.find((u) => u.id === s.id)
+            return update ? { ...s, name: update.name } : s
+          })
+        )
+      }
+    }
+
+    // Poll every 2 seconds
+    const interval = setInterval(updateSessionNames, 2000)
+    // Also run immediately
+    updateSessionNames()
+
+    return () => clearInterval(interval)
+  }, [sessions.length])
 
   return (
     <SessionContext.Provider

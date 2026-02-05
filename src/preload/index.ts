@@ -46,6 +46,9 @@ const electronAPI: ElectronAPI = {
   },
 
   git: {
+    getCurrentBranch: (dir: string): Promise<string | null> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_CURRENT_BRANCH, dir),
+
     getMainBranch: (dir: string): Promise<string | null> =>
       ipcRenderer.invoke(GIT_CHANNELS.GET_MAIN_BRANCH, dir),
 

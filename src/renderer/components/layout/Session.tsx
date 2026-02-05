@@ -1,23 +1,23 @@
 import { memo, useMemo } from 'react'
-import { Session as SessionType } from '@shared/types'
 import { ResizableSplit } from './ResizableSplit'
 import { Terminal } from '../terminal/Terminal'
 import { DiffPanel } from '../diff/DiffPanel'
 
 interface SessionProps {
-  session: SessionType
+  sessionId: string
+  cwd: string
 }
 
-export const Session = memo(function Session({ session }: SessionProps) {
+export const Session = memo(function Session({ sessionId, cwd }: SessionProps) {
   // Memoize children to prevent re-renders when ResizableSplit updates
   const terminalElement = useMemo(
-    () => <Terminal sessionId={session.id} cwd={session.cwd} />,
-    [session.id, session.cwd]
+    () => <Terminal sessionId={sessionId} cwd={cwd} />,
+    [sessionId, cwd]
   )
 
   const diffPanelElement = useMemo(
-    () => <DiffPanel sessionId={session.id} cwd={session.cwd} />,
-    [session.id, session.cwd]
+    () => <DiffPanel sessionId={sessionId} cwd={cwd} />,
+    [sessionId, cwd]
   )
 
   return (
@@ -25,7 +25,7 @@ export const Session = memo(function Session({ session }: SessionProps) {
       <ResizableSplit
         left={terminalElement}
         right={diffPanelElement}
-        initialRatio={0.6}
+        initialRatio={0.5}
         minRatio={0.2}
         maxRatio={0.8}
       />

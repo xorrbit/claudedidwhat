@@ -21,7 +21,7 @@ export function Tab({ name, fullPath, isActive, onSelect, onClose }: TabProps) {
       className={`
         relative flex items-center gap-2 px-4 py-2 text-sm
         transition-colors duration-150 border-r border-terminal-border
-        min-w-[120px] max-w-[200px]
+        min-w-[180px] max-w-[300px]
         ${isActive
           ? 'bg-terminal-bg text-terminal-text'
           : 'bg-terminal-surface text-terminal-text-muted hover:text-terminal-text'

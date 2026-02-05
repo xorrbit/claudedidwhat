@@ -64,50 +64,53 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd }:
   }
 
   return (
-    <div className="h-full flex flex-col bg-terminal-bg">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border">
-        <div className="flex flex-col min-w-0">
-          <span className="text-xs text-terminal-text-muted uppercase tracking-wide">
-            Changes
-          </span>
-          <span className="text-xs text-terminal-text-muted truncate" title={terminalCwd}>
-            {terminalCwd.split('/').slice(-2).join('/')}
-          </span>
-        </div>
-        <button
-          className="text-terminal-text-muted hover:text-terminal-text p-1"
-          onClick={refresh}
-          title="Refresh"
-        >
-          <svg
-            className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+    <div className="h-full flex bg-terminal-bg">
+      {/* File list sidebar */}
+      <div className="w-48 flex-shrink-0 flex flex-col border-r border-terminal-border">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-terminal-border">
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs text-terminal-text-muted uppercase tracking-wide">
+              Changes
+            </span>
+            <span className="text-xs text-terminal-text-muted truncate" title={terminalCwd}>
+              {terminalCwd.split('/').slice(-2).join('/')}
+            </span>
+          </div>
+          <button
+            className="text-terminal-text-muted hover:text-terminal-text p-1"
+            onClick={refresh}
+            title="Refresh"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
-      </div>
+            <svg
+              className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+        </div>
 
-      {/* File list */}
-      <div className="border-b border-terminal-border">
-        <FileList
-          files={files}
-          selectedFile={selectedFile}
-          onSelectFile={selectFile}
-          isLoading={isLoading}
-        />
+        {/* File list - scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          <FileList
+            files={files}
+            selectedFile={selectedFile}
+            onSelectFile={selectFile}
+            isLoading={isLoading}
+          />
+        </div>
       </div>
 
       {/* Diff view */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 min-w-0">
         <DiffView
           filePath={selectedFile}
           diffContent={diffContent}

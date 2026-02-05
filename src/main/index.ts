@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron'
 
 // Suppress security warning in dev mode (Vite requires unsafe-eval for HMR)
 if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
@@ -13,9 +13,22 @@ import { createAppMenu } from './menu'
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+  // Size window to 80% of screen, with reasonable limits
+  const width = Math.min(Math.max(Math.round(screenWidth * 0.8), 800), 1600)
+  const height = Math.min(Math.max(Math.round(screenHeight * 0.8), 600), 1000)
+
+  // Center the window
+  const x = Math.round((screenWidth - width) / 2)
+  const y = Math.round((screenHeight - height) / 2)
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width,
+    height,
+    x,
+    y,
     minWidth: 800,
     minHeight: 600,
     backgroundColor: '#1e1e1e',

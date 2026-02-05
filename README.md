@@ -6,10 +6,12 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 
 ## Features
 
-- **Split-pane layout**: Terminal on the left, diff viewer on the right
+- **Split-pane layout**: Terminal on the left (50%), diff viewer on the right (50%), with resizable divider
+- **Smart tab naming**: Tabs show git branch name, or directory name when on main/master or outside a git repo
 - **Multi-tab support**: Manage multiple sessions with keyboard shortcuts
-- **Real-time git diff**: Automatically detects and displays file changes
+- **Real-time git diff**: Automatically detects and displays file changes with side-by-side file list
 - **Monaco-powered diff view**: Syntax highlighting with side-by-side comparison
+- **Responsive window**: Window size adapts to your screen (80% of display, centered)
 - **Cross-platform**: Works on macOS, Windows, and Linux
 - **Dark theme**: Easy on the eyes for long coding sessions
 
@@ -58,12 +60,11 @@ Download from the [Releases](https://github.com/xorrbit/vibediff/releases) page.
 
 ### Diff Panel
 
-The diff panel on the right side automatically shows:
-- List of changed files compared to the main branch
-- Color-coded status indicators (Added, Modified, Deleted)
-- Click any file to view its diff with syntax highlighting
+The diff panel on the right side features a side-by-side layout:
+- **File list sidebar**: Shows changed files compared to the main branch with color-coded status indicators (Added, Modified, Deleted)
+- **Diff viewer**: Click any file to view its diff with syntax highlighting
 
-Changes are detected in real-time as you edit files.
+Changes are detected in real-time as you edit files. The tab name automatically updates to reflect your current git branch or directory.
 
 ## Tech Stack
 

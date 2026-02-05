@@ -17,6 +17,7 @@ export const PTY_CHANNELS = {
 
 // Git IPC channels
 export const GIT_CHANNELS = {
+  GET_CURRENT_BRANCH: 'git:getCurrentBranch',
   GET_MAIN_BRANCH: 'git:getMainBranch',
   GET_CHANGED_FILES: 'git:getChangedFiles',
   GET_FILE_DIFF: 'git:getFileDiff',
@@ -77,6 +78,7 @@ export interface ElectronAPI {
     getCwd: (sessionId: string) => Promise<string | null>
   }
   git: {
+    getCurrentBranch: (dir: string) => Promise<string | null>
     getMainBranch: (dir: string) => Promise<string | null>
     getChangedFiles: (dir: string, baseBranch?: string) => Promise<ChangedFile[]>
     getFileDiff: (dir: string, filePath: string, baseBranch?: string) => Promise<DiffContent | null>

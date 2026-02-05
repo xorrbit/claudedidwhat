@@ -5,6 +5,10 @@ import { GitService } from '../services/git'
 const gitService = new GitService()
 
 export function registerGitHandlers(ipcMain: IpcMain) {
+  ipcMain.handle(GIT_CHANNELS.GET_CURRENT_BRANCH, async (_event, dir: string) => {
+    return gitService.getCurrentBranch(dir)
+  })
+
   ipcMain.handle(GIT_CHANNELS.GET_MAIN_BRANCH, async (_event, dir: string) => {
     return gitService.getMainBranch(dir)
   })
