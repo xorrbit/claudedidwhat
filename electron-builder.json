@@ -1,6 +1,6 @@
 {
   "appId": "com.claudedidwhat.app",
-  "productName": "Claude Did What?!",
+  "productName": "claudedidwhat",
   "directories": {
     "output": "release"
   },
