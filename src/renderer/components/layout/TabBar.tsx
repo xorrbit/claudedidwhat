@@ -1,7 +1,7 @@
 import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useRef } from 'react'
 import { Session } from '@shared/types'
 import { Tab } from './Tab'
-import logoPng from '../../../../assets/claudedidwhat.png'
+import logoPng from '../../../../resources/icon.png'
 
 interface TabBarProps {
   sessions: Session[]

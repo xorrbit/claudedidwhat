@@ -4,7 +4,7 @@ AI slop masquerading as a terminal for the post-IDE era. Live diff viewer built 
 
 Shipped while the tests were still running by Andrew Orr.
 
-![Claude Did What?! Screenshot](assets/claudedidwhat.png)
+![Claude Did What?! Screenshot](assets/screenshot.png)
 
 ## Why?
 
