@@ -5,6 +5,7 @@ import { join } from 'path'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { detectShell, getShellName } from './shell'
+import { debugLog } from '../logger'
 
 const execFileAsync = promisify(execFile)
 
@@ -131,6 +132,7 @@ export class PtyManager {
 
     const shellInfo = shell ? { path: shell, name: shell } : detectShell()
     const isWindows = platform() === 'win32'
+    debugLog('Spawning PTY:', { sessionId, cwd, shell: shellInfo.path })
 
     // Validate cwd exists
     if (!existsSync(cwd)) {
@@ -142,8 +144,6 @@ export class PtyManager {
     const integration = this.integrationReady
       ? getShellIntegration(shellInfo.path)
       : { args: [] as string[], env: {} as Record<string, string> }
-
-    console.log(`Spawning PTY: shell=${shellInfo.path}, cwd=${cwd}`)
 
     let ptyProcess: pty.IPty
     try {

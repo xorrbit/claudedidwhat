@@ -2,6 +2,7 @@ import chokidar, { FSWatcher } from 'chokidar'
 import { platform } from 'os'
 import { readFileSync } from 'fs'
 import { FileChangeEvent } from '@shared/types'
+import { debugLog } from '../logger'
 
 type WatcherCallback = (event: FileChangeEvent) => void
 
@@ -46,6 +47,8 @@ export class FileWatcher {
     // which overwhelms the 9P filesystem bridge and starves the event loop.
     // Skip file watching entirely — useGitDiff falls back to periodic git status.
     if (IS_WSL) return false
+
+    debugLog('Starting file watcher:', { sessionId, dir })
 
     const watcher = chokidar.watch(dir, {
       followSymlinks: false,
@@ -138,6 +141,7 @@ export class FileWatcher {
       if (instance.debounceTimer) {
         clearTimeout(instance.debounceTimer)
       }
+      debugLog('Stopping file watcher:', { sessionId })
       instance.watcher.close()
       this.watchers.delete(sessionId)
     }

@@ -24,6 +24,7 @@ import { registerFsHandlers, fileWatcher } from './ipc/fs'
 import { registerGrammarHandlers } from './ipc/grammar'
 import { TERMINAL_MENU_CHANNELS } from '@shared/types'
 import { createAppMenu } from './menu'
+import { debugLog } from './logger'
 
 function isWSL(): boolean {
   if (platform() !== 'linux') return false
@@ -87,12 +88,12 @@ function createWindow() {
 
 // Register all IPC handlers
 function registerIpcHandlers() {
-  console.log('Registering IPC handlers...')
+  debugLog('Registering IPC handlers...')
   registerPtyHandlers(ipcMain)
   registerGitHandlers(ipcMain)
   registerFsHandlers(ipcMain)
   registerGrammarHandlers(ipcMain)
-  console.log('IPC handlers registered')
+  debugLog('IPC handlers registered')
 
   // Directory selection dialog
   ipcMain.handle('fs:selectDirectory', async () => {
@@ -178,7 +179,7 @@ function registerIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  console.log('App ready, initializing...')
+  debugLog('App ready, initializing...')
 
   // Set Content-Security-Policy in production only.
   // Dev mode is excluded: Vite HMR needs WebSocket (ws:) connections and unsafe-eval,
@@ -204,7 +205,7 @@ app.whenReady().then(() => {
   createAppMenu()
   registerIpcHandlers()
   createWindow()
-  console.log('Window created')
+  debugLog('Window created')
 
   app.on('activate', () => {
     // On macOS, re-create a window when dock icon is clicked and no windows open

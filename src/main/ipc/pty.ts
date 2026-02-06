@@ -2,12 +2,14 @@ import { IpcMain } from 'electron'
 import { PTY_CHANNELS, PtySpawnOptions, PtyResizeOptions } from '@shared/types'
 import { PtyManager } from '../services/pty-manager'
 import { sendToRenderer } from '../index'
+import { debugLog } from '../logger'
 
 export const ptyManager = new PtyManager()
 
 export function registerPtyHandlers(ipcMain: IpcMain) {
   ipcMain.handle(PTY_CHANNELS.SPAWN, async (_event, options: PtySpawnOptions) => {
     const { sessionId, cwd, shell } = options
+    debugLog('PTY spawn request:', { sessionId, cwd, shell })
 
     try {
       ptyManager.spawn(sessionId, cwd, shell, {

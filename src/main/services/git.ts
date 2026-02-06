@@ -3,6 +3,7 @@ import { ChangedFile, DiffContent, FileStatus } from '@shared/types'
 import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { join, resolve, dirname } from 'path'
+import { debugLog } from '../logger'
 
 /**
  * Resolve a repo-relative file path and verify it stays within the repo root.
@@ -50,6 +51,8 @@ export class GitService {
     if (cached && Date.now() - cached.timestamp < GitService.GIT_ROOT_CACHE_TTL) {
       return cached.gitRoot
     }
+
+    debugLog('findGitRoot:', normalizedDir)
 
     // Walk up the directory tree
     const visited: string[] = []
