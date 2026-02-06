@@ -20,13 +20,17 @@ vi.mock('@monaco-editor/react', () => ({
 // Mock window.electronAPI for renderer tests
 const mockElectronAPI = {
   pty: {
-    spawn: vi.fn(),
+    spawn: vi.fn().mockResolvedValue(undefined),
+    input: vi.fn(),
     write: vi.fn(),
     resize: vi.fn(),
     kill: vi.fn(),
     onData: vi.fn(() => () => {}),
     onExit: vi.fn(() => () => {}),
     getCwd: vi.fn().mockResolvedValue(null),
+  },
+  shell: {
+    openExternal: vi.fn().mockResolvedValue(undefined),
   },
   git: {
     getChangedFiles: vi.fn(),

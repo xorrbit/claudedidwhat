@@ -1,0 +1,404 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const { mockExistsSync, mockSimpleGit } = vi.hoisted(() => {
+  const mockGitInstance = {
+    branchLocal: vi.fn(),
+    getRemotes: vi.fn(),
+    raw: vi.fn(),
+    status: vi.fn(),
+    diffSummary: vi.fn(),
+    show: vi.fn(),
+  }
+  return {
+    mockExistsSync: vi.fn(),
+    mockSimpleGit: vi.fn(() => mockGitInstance),
+  }
+})
+
+vi.mock('fs', () => {
+  const mod = { existsSync: mockExistsSync }
+  return { ...mod, default: mod }
+})
+
+vi.mock('simple-git', () => {
+  const mod = mockSimpleGit
+  return { ...mod, default: mod }
+})
+
+import { GitService } from '@main/services/git'
+
+function getGitMock() {
+  return mockSimpleGit() as ReturnType<typeof mockSimpleGit>
+}
+
+describe('GitService', () => {
+  let service: GitService
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    service = new GitService()
+    // Default: .git exists
+    mockExistsSync.mockReturnValue(true)
+  })
+
+  describe('getCurrentBranch', () => {
+    it('returns current branch name', async () => {
+      getGitMock().branchLocal.mockResolvedValue({ current: 'feature/test', all: ['main', 'feature/test'] })
+
+      const result = await service.getCurrentBranch('/repo')
+
+      expect(result).toBe('feature/test')
+    })
+
+    it('returns null when not a git repo', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const result = await service.getCurrentBranch('/not-a-repo')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on error', async () => {
+      getGitMock().branchLocal.mockRejectedValue(new Error('git error'))
+
+      const result = await service.getCurrentBranch('/repo')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null when current branch is empty', async () => {
+      getGitMock().branchLocal.mockResolvedValue({ current: '', all: [] })
+
+      const result = await service.getCurrentBranch('/repo')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getMainBranch', () => {
+    it('detects main branch from remote symbolic ref', async () => {
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBe('main')
+    })
+
+    it('falls back to common branch names when symbolic-ref fails', async () => {
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockRejectedValue(new Error('not set'))
+      getGitMock().branchLocal.mockResolvedValue({ current: 'feature', all: ['feature', 'master'] })
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBe('master')
+    })
+
+    it('prefers "main" over "master"', async () => {
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: 'feature', all: ['feature', 'main', 'master'] })
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBe('main')
+    })
+
+    it('falls back to current branch when no common names found', async () => {
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: 'only-branch', all: ['only-branch'] })
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBe('only-branch')
+    })
+
+    it('caches result for 5 minutes', async () => {
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+
+      const result1 = await service.getMainBranch('/repo')
+      const result2 = await service.getMainBranch('/repo')
+
+      expect(result1).toBe('main')
+      expect(result2).toBe('main')
+      // Should only call getRemotes once due to caching
+      expect(getGitMock().getRemotes).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns null when not a git repo', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const result = await service.getMainBranch('/not-repo')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on error', async () => {
+      getGitMock().getRemotes.mockRejectedValue(new Error('git error'))
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBeNull()
+    })
+
+    it('tries develop and dev as fallback branch names', async () => {
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: 'feature', all: ['feature', 'develop'] })
+
+      const result = await service.getMainBranch('/repo')
+
+      expect(result).toBe('develop')
+    })
+  })
+
+  describe('getChangedFiles', () => {
+    const mockStatus = {
+      staged: ['staged.ts'],
+      modified: ['modified.ts'],
+      not_added: ['new.ts'],
+      deleted: ['deleted.ts'],
+      created: ['created.ts'],
+      renamed: [],
+    }
+
+    it('returns all changed files with correct statuses', async () => {
+      getGitMock().status.mockResolvedValue(mockStatus)
+      // No main branch
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: '', all: [] })
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toContainEqual({ path: 'staged.ts', status: 'M' })
+      expect(files).toContainEqual({ path: 'modified.ts', status: 'M' })
+      expect(files).toContainEqual({ path: 'new.ts', status: '?' })
+      expect(files).toContainEqual({ path: 'deleted.ts', status: 'D' })
+      expect(files).toContainEqual({ path: 'created.ts', status: 'A' })
+    })
+
+    it('deduplicates files that appear in multiple categories', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: ['file.ts'],
+        modified: ['file.ts'], // Same file in both staged and modified
+        not_added: [],
+        deleted: [],
+        created: ['file.ts'], // And created
+        renamed: [],
+      })
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: '', all: [] })
+
+      const files = await service.getChangedFiles('/repo')
+      const filePaths = files.map((f) => f.path)
+
+      // Should only appear once
+      expect(filePaths.filter((p) => p === 'file.ts')).toHaveLength(1)
+    })
+
+    it('includes diff against base branch with three-dot syntax', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: [],
+        modified: [],
+        not_added: [],
+        deleted: [],
+        created: [],
+        renamed: [],
+      })
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+      getGitMock().diffSummary.mockResolvedValue({
+        files: [{ file: 'diff-file.ts', insertions: 5, deletions: 3 }],
+      })
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toContainEqual({ path: 'diff-file.ts', status: 'M' })
+      expect(getGitMock().diffSummary).toHaveBeenCalledWith(['main...HEAD'])
+    })
+
+    it('infers status A from diff with only insertions', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: [], modified: [], not_added: [], deleted: [], created: [], renamed: [],
+      })
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+      getGitMock().diffSummary.mockResolvedValue({
+        files: [{ file: 'new-file.ts', insertions: 10, deletions: 0 }],
+      })
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toContainEqual({ path: 'new-file.ts', status: 'A' })
+    })
+
+    it('infers status D from diff with only deletions', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: [], modified: [], not_added: [], deleted: [], created: [], renamed: [],
+      })
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+      getGitMock().diffSummary.mockResolvedValue({
+        files: [{ file: 'gone.ts', insertions: 0, deletions: 15 }],
+      })
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toContainEqual({ path: 'gone.ts', status: 'D' })
+    })
+
+    it('uses provided baseBranch instead of detecting', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: [], modified: [], not_added: [], deleted: [], created: [], renamed: [],
+      })
+      getGitMock().diffSummary.mockResolvedValue({ files: [] })
+
+      await service.getChangedFiles('/repo', 'develop')
+
+      expect(getGitMock().diffSummary).toHaveBeenCalledWith(['develop...HEAD'])
+    })
+
+    it('returns empty array when not a git repo', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const files = await service.getChangedFiles('/not-repo')
+
+      expect(files).toEqual([])
+    })
+
+    it('returns empty array on error', async () => {
+      getGitMock().status.mockRejectedValue(new Error('git error'))
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toEqual([])
+    })
+
+    it('handles diff summary error gracefully', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: ['file.ts'], modified: [], not_added: [], deleted: [], created: ['file.ts'], renamed: [],
+      })
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+      getGitMock().diffSummary.mockRejectedValue(new Error('diff error'))
+
+      const files = await service.getChangedFiles('/repo')
+
+      // Should still return status files despite diff error
+      expect(files.length).toBeGreaterThan(0)
+    })
+
+    it('detects renamed files from status', async () => {
+      getGitMock().status.mockResolvedValue({
+        staged: ['new-name.ts'],
+        modified: [],
+        not_added: [],
+        deleted: [],
+        created: [],
+        renamed: [{ from: 'old-name.ts', to: 'new-name.ts' }],
+      })
+      getGitMock().getRemotes.mockResolvedValue([])
+      getGitMock().branchLocal.mockResolvedValue({ current: '', all: [] })
+
+      const files = await service.getChangedFiles('/repo')
+
+      expect(files).toContainEqual({ path: 'new-name.ts', status: 'R' })
+    })
+  })
+
+  describe('getFileDiff', () => {
+    it('returns original and modified content', async () => {
+      getGitMock().show.mockResolvedValue('original content')
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+
+      // Mock fs/promises readFile via dynamic import
+      vi.doMock('fs/promises', () => ({
+        readFile: vi.fn().mockResolvedValue('modified content'),
+      }))
+
+      const result = await service.getFileDiff('/repo', 'file.ts')
+
+      expect(result).toEqual({ original: 'original content', modified: expect.any(String) })
+    })
+
+    it('returns null when not a git repo', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const result = await service.getFileDiff('/not-repo', 'file.ts')
+
+      expect(result).toBeNull()
+    })
+
+    it('handles new file (no original content)', async () => {
+      getGitMock().show.mockRejectedValue(new Error('not found'))
+      getGitMock().getRemotes.mockResolvedValue([{ name: 'origin' }])
+      getGitMock().raw.mockResolvedValue('refs/remotes/origin/main\n')
+
+      const result = await service.getFileDiff('/repo', 'new-file.ts')
+
+      expect(result).not.toBeNull()
+      expect(result!.original).toBe('')
+    })
+
+    it('returns null on error', async () => {
+      // Make getGit fail by returning null
+      mockExistsSync.mockReturnValue(false)
+
+      const result = await service.getFileDiff('/repo', 'file.ts')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('getFileContent', () => {
+    it('returns content from git ref', async () => {
+      getGitMock().show.mockResolvedValue('content at ref')
+
+      const result = await service.getFileContent('/repo', 'file.ts', 'HEAD')
+
+      expect(result).toBe('content at ref')
+      expect(getGitMock().show).toHaveBeenCalledWith(['HEAD:file.ts'])
+    })
+
+    it('returns null when not a git repo', async () => {
+      mockExistsSync.mockReturnValue(false)
+
+      const result = await service.getFileContent('/not-repo', 'file.ts')
+
+      expect(result).toBeNull()
+    })
+
+    it('returns null on error', async () => {
+      getGitMock().show.mockRejectedValue(new Error('not found'))
+
+      const result = await service.getFileContent('/repo', 'file.ts', 'HEAD')
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('caching', () => {
+    it('caches git repo check', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      // Access twice rapidly
+      service.getCurrentBranch('/repo')
+      service.getCurrentBranch('/repo')
+
+      // existsSync should only be called once (cached)
+      expect(mockExistsSync).toHaveBeenCalledTimes(1)
+    })
+
+    it('caches SimpleGit instance per directory', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      service.getCurrentBranch('/repo1')
+      service.getCurrentBranch('/repo1')
+      service.getCurrentBranch('/repo2')
+
+      // simpleGit should be called once per unique dir
+      expect(mockSimpleGit).toHaveBeenCalledTimes(2)
+    })
+  })
+})
