@@ -211,7 +211,9 @@ describe('DiffView', () => {
         />
       )
 
-      expect(screen.getByTestId('mock-diff-editor')).toBeInTheDocument()
+      // With instance pooling, both editors exist (one hidden, one visible)
+      const editors = screen.getAllByTestId('mock-diff-editor')
+      expect(editors.length).toBeGreaterThanOrEqual(1)
     })
 
     it('transitions through states correctly', async () => {

@@ -185,11 +185,10 @@ export function useGitDiff({ sessionId, cwd }: UseGitDiffOptions): UseGitDiffRet
     // Capture file path to avoid stale closure issues
     const filePath = selectedFile
 
-    // Check cache first (also marks as recently used)
-    const cached = getCacheEntry(filePath)
+    // Check cache — if selectFile() already set this content, skip the redundant setState.
+    // Read without LRU mutation since selectFile() already updated LRU order.
+    const cached = diffCache.current.get(filePath)
     if (cached) {
-      setDiffContent(cached)
-      setIsDiffLoading(false)
       return
     }
 

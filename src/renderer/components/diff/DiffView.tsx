@@ -1,4 +1,4 @@
-import { memo, lazy, Suspense, useMemo } from 'react'
+import { memo, lazy, Suspense, useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { DiffContent } from '@shared/types'
 import { textMateService } from '../../lib/textmate'
 import { loader } from '@monaco-editor/react'
@@ -170,8 +170,107 @@ const DiffEditorContent = memo(function DiffEditorContent({
   )
 })
 
+const POOL_CAP = 5
+
+interface PoolEntry {
+  path: string
+  content: DiffContent
+  language: string
+}
+
+// Renders pooled editor instances. Memo'd on pool/viewMode only — NOT filePath.
+// For cached file switches pool doesn't change, so React skips this entire
+// subtree (no virtual DOM creation, no reconciliation, zero work).
+const PoolRenderer = memo(function PoolRenderer({
+  pool,
+  viewMode,
+}: {
+  pool: PoolEntry[]
+  viewMode: DiffViewMode
+}) {
+  return (
+    <>
+      {pool.map((entry) => (
+        <div
+          key={entry.path}
+          data-file={entry.path}
+          className="absolute inset-0"
+          style={{ opacity: 0, pointerEvents: 'none' as const, zIndex: 0, willChange: 'opacity' }}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            <DiffEditorContent
+              original={entry.content.original}
+              modified={entry.content.modified}
+              language={entry.language}
+              viewMode={viewMode}
+            />
+          </Suspense>
+        </div>
+      ))}
+    </>
+  )
+})
+
 export const DiffView = memo(function DiffView({ filePath, diffContent, isLoading, viewMode = 'auto' }: DiffViewProps) {
-  const language = useMemo(() => getLanguage(filePath), [filePath])
+  const [pool, setPool] = useState<PoolEntry[]>([])
+  const prevDiffRef = useRef<DiffContent | null>(null)
+  const lruRef = useRef<string[]>([])
+  const poolRef = useRef<HTMLDivElement>(null)
+
+  // Upsert into pool when we have fresh content for a file.
+  // Identity check: skip when diffContent is the same object reference as
+  // last render — that means filePath changed but the hook hasn't produced
+  // new content yet (stale from the previous file).
+  useEffect(() => {
+    if (!filePath || !diffContent) {
+      prevDiffRef.current = diffContent
+      return
+    }
+    if (diffContent === prevDiffRef.current) return
+    prevDiffRef.current = diffContent
+
+    // Track access order for eviction (ref-only, no re-render)
+    lruRef.current = [...lruRef.current.filter((p) => p !== filePath), filePath]
+
+    const lang = getLanguage(filePath)
+    setPool((prev) => {
+      const existing = prev.find((e) => e.path === filePath)
+      if (existing) {
+        // Already pooled — only update state if content actually changed
+        if (existing.content.original === diffContent.original &&
+            existing.content.modified === diffContent.modified) {
+          return prev // Same reference → no re-render
+        }
+        return prev.map((e) =>
+          e.path === filePath ? { path: filePath, content: diffContent, language: lang } : e
+        )
+      }
+      // New entry — evict LRU if at cap
+      let next = [...prev]
+      if (next.length >= POOL_CAP) {
+        const poolPaths = new Set(next.map((e) => e.path))
+        const toEvict = lruRef.current.find((p) => p !== filePath && poolPaths.has(p))
+        next = toEvict ? next.filter((e) => e.path !== toEvict) : next.slice(1)
+      }
+      next.push({ path: filePath, content: diffContent, language: lang })
+      return next
+    })
+  }, [filePath, diffContent])
+
+  // Toggle active editor via direct DOM manipulation — bypasses React entirely.
+  // useLayoutEffect runs synchronously before paint, so no flash.
+  useLayoutEffect(() => {
+    if (!poolRef.current) return
+    for (const child of poolRef.current.children) {
+      const el = child as HTMLElement
+      const isActive = el.dataset.file === filePath
+      el.style.opacity = isActive ? '1' : '0'
+      el.style.pointerEvents = isActive ? 'auto' : 'none'
+      el.style.zIndex = isActive ? '1' : '0'
+    }
+  }, [filePath, pool])
+
+  const isInPool = filePath ? pool.some((e) => e.path === filePath) : false
 
   if (!filePath) {
     return (
@@ -186,38 +285,34 @@ export const DiffView = memo(function DiffView({ filePath, diffContent, isLoadin
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center">
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 border-2 border-obsidian-accent/30 border-t-obsidian-accent rounded-full animate-spin" />
-          <span className="text-sm text-obsidian-text-muted">Loading diff...</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (!diffContent) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center">
-        <div className="w-12 h-12 rounded-xl bg-obsidian-deleted/10 flex items-center justify-center mb-4">
-          <svg className="w-6 h-6 text-obsidian-deleted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <p className="text-sm text-obsidian-text-muted">Unable to load diff</p>
-      </div>
-    )
-  }
-
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <DiffEditorContent
-        original={diffContent.original}
-        modified={diffContent.modified}
-        language={language}
-        viewMode={viewMode}
-      />
-    </Suspense>
+    <div className="relative h-full">
+      {/* Pooled editors — PoolRenderer memo skips entirely for cached switches */}
+      <div ref={poolRef}>
+        <PoolRenderer pool={pool} viewMode={viewMode} />
+      </div>
+
+      {/* Loading overlay — shown whenever active file isn't pooled yet */}
+      {!isInPool && (isLoading || diffContent !== null) && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-obsidian-bg">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-obsidian-accent/30 border-t-obsidian-accent rounded-full animate-spin" />
+            <span className="text-sm text-obsidian-text-muted">Loading diff...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error overlay — only when loading finished with no content */}
+      {!isInPool && !isLoading && !diffContent && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-obsidian-bg">
+          <div className="w-12 h-12 rounded-xl bg-obsidian-deleted/10 flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-obsidian-deleted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-sm text-obsidian-text-muted">Unable to load diff</p>
+        </div>
+      )}
+    </div>
   )
 })

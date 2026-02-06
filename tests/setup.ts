@@ -2,7 +2,11 @@ import { vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
 // Mock monaco-editor before any component imports it
-vi.mock('monaco-editor', () => ({}))
+vi.mock('monaco-editor', () => ({
+  editor: {
+    defineTheme: vi.fn(),
+  },
+}))
 
 vi.mock('@monaco-editor/react', () => ({
   loader: {
