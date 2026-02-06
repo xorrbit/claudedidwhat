@@ -46,7 +46,7 @@ test.describe('Tab Management', () => {
     const tabsBefore = await page.locator('[class*="tab"]').count()
 
     // Double-click on the empty area after tabs to create a new tab
-    const emptyArea = page.locator('.min-w-\\[100px\\]').first()
+    const emptyArea = page.locator('[data-testid="tabbar-empty-space"]').first()
     await emptyArea.dblclick()
 
     // Wait for new tab to be created

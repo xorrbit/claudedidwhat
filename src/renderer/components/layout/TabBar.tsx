@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useRef } from 'react'
+import { type MouseEvent as ReactMouseEvent, type WheelEvent, useCallback, useEffect, useRef } from 'react'
 import { Session } from '@shared/types'
 import { Tab } from './Tab'
 import logoPng from '../../../../resources/icon.png'
@@ -121,6 +121,11 @@ export function TabBar({
     onNewTab()
   }, [onNewTab])
 
+  const handleTabsWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY === 0) return
+    e.currentTarget.scrollLeft += e.deltaY
+  }, [])
+
   return (
     <div className="relative flex items-stretch bg-obsidian-surface border-b border-obsidian-border-subtle z-10">
       {/* Subtle top highlight */}
@@ -136,7 +141,7 @@ export function TabBar({
       </div>
 
       {/* Tabs container */}
-      <div className="flex-1 flex items-end overflow-x-auto scrollbar-thin gap-0.5 pt-2">
+      <div className="flex-1 flex items-end overflow-x-auto scrollbar-thin gap-0.5 pt-2" onWheel={handleTabsWheel}>
         {sessions.map((session, index) => (
           <Tab
             key={session.id}
@@ -152,7 +157,7 @@ export function TabBar({
 
         {/* Empty space after tabs - double-click to open new tab */}
         <div
-          className="flex-1 min-w-[100px] h-full app-no-drag"
+          className="flex-1 min-w-[40px] h-full app-no-drag"
           data-testid="tabbar-empty-space"
           onMouseDown={handleEmptyAreaMouseDown}
           onDoubleClick={handleEmptyAreaDoubleClick}

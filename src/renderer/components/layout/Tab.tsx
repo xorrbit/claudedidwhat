@@ -22,7 +22,7 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, onSelect, o
       className={`
         relative flex items-center gap-2.5 px-4 py-2 text-sm
         transition-all duration-200 ease-out-expo
-        min-w-[160px] max-w-[260px] group
+        flex-1 min-w-[100px] max-w-[240px] group
         rounded-t-lg
         ${isActive
           ? 'bg-obsidian-bg text-obsidian-text'

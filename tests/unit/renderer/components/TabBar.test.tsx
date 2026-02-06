@@ -145,7 +145,7 @@ describe('TabBar', () => {
     )
 
     // Should still have the empty space for double-click to create new tab
-    const emptySpace = container.querySelector('.flex-1.min-w-\\[100px\\]')
+    const emptySpace = container.querySelector('.flex-1.min-w-\\[40px\\]')
     expect(emptySpace).toBeInTheDocument()
   })
 
@@ -162,6 +162,25 @@ describe('TabBar', () => {
 
     const tab = screen.getByText('project1').closest('button')!
     expect(tab).toHaveAttribute('title', '/home/user/project1')
+  })
+
+  it('converts vertical mouse wheel to horizontal scroll on tabs container', () => {
+    render(
+      <TabBar
+        sessions={mockSessions}
+        activeSessionId="1"
+        onTabSelect={vi.fn()}
+        onTabClose={vi.fn()}
+        onNewTab={vi.fn()}
+      />
+    )
+
+    const tabsContainer = screen.getByTestId('tabbar-empty-space').parentElement!
+    tabsContainer.scrollLeft = 0
+
+    fireEvent.wheel(tabsContainer, { deltaY: 50 })
+
+    expect(tabsContainer.scrollLeft).toBe(50)
   })
 
   it('handles many tabs without breaking', () => {
