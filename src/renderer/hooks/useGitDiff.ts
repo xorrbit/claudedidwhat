@@ -6,6 +6,7 @@ interface UseGitDiffOptions {
   sessionId: string
   cwd: string
   enabled?: boolean
+  gitRootHint?: string | null
 }
 
 interface UseGitDiffReturn {
@@ -19,9 +20,9 @@ interface UseGitDiffReturn {
   refresh: () => void
 }
 
-const MAX_CACHE_SIZE = 20
+const MAX_CACHE_SIZE = 50
 
-export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions): UseGitDiffReturn {
+export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseGitDiffOptions): UseGitDiffReturn {
   const [files, setFiles] = useState<ChangedFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<DiffContent | null>(null)
@@ -74,9 +75,15 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     selectedFileRef.current = selectedFile
   }, [selectedFile])
 
-  // Resolve git root whenever cwd changes
+  // Resolve git root whenever cwd changes. Use context hint when available
+  // to skip the IPC round trip.
   useEffect(() => {
     if (!enabled) return
+
+    if (gitRootHint !== undefined) {
+      setGitRoot(gitRootHint)
+      return
+    }
 
     let cancelled = false
     window.electronAPI.git.findGitRoot(cwd).then((root) => {
@@ -85,7 +92,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
       }
     })
     return () => { cancelled = true }
-  }, [cwd, enabled])
+  }, [cwd, enabled, gitRootHint])
 
   // Load changed files and refresh diff if a file is selected
   const loadFiles = useCallback(async () => {
@@ -109,7 +116,24 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
 
       // Auto-select first file if none selected (use ref to avoid dependency)
       if (!selectedFileRef.current && changedFiles.length > 0) {
-        setSelectedFile(changedFiles[0].path)
+        const firstPath = changedFiles[0].path
+        setSelectedFile(firstPath)
+
+        // Prefetch diff inline to avoid an extra render + effect cycle
+        if (requestId === loadRequestId.current) {
+          try {
+            const diff = await window.electronAPI.git.getFileDiff(gitRoot, firstPath)
+            if (requestId === loadRequestId.current) {
+              if (diff) {
+                setCacheEntry(firstPath, diff)
+                setDiffContent(diff)
+              }
+              setIsDiffLoading(false)
+            }
+          } catch {
+            // The selectedFile effect will retry if needed
+          }
+        }
       } else if (selectedFileRef.current) {
         const selectedPath = selectedFileRef.current
         const selectedStillChanged = changedFiles.some((file) => file.path === selectedPath)
@@ -177,7 +201,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     const timer = setTimeout(() => {
       loadFilesRef.current?.()
       initialLoadDone.current = true
-    }, 2000) // Wait 2 seconds after mount before first git check
+    }, 500) // Wait 500ms after mount before first git check
 
     return () => clearTimeout(timer)
   }, [enabled])
@@ -191,7 +215,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     if (enabled && !wasEnabled && initialLoadDone.current) {
       const timer = setTimeout(() => {
         loadFilesRef.current?.()
-      }, 150)
+      }, 50)
       return () => clearTimeout(timer)
     }
   }, [enabled])
@@ -270,11 +294,10 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
       }
     }
 
-    const timer = setTimeout(loadDiff, 100)
+    loadDiff()
 
     return () => {
       cancelled = true
-      clearTimeout(timer)
       setIsDiffLoading(false)
     }
   }, [enabled, gitRoot, cwd, selectedFile, getCacheEntry, setCacheEntry])

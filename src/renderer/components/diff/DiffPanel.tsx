@@ -17,9 +17,10 @@ export const DiffPanel = memo(function DiffPanel({
   isActive = true,
   onFocusTerminal,
 }: DiffPanelProps) {
-  // Get current CWD from context (tracked centrally to avoid duplicate polling)
-  const { sessionCwds } = useSessionContext()
+  // Get current CWD and git root from context (tracked centrally to avoid duplicate polling)
+  const { sessionCwds, sessionGitRoots } = useSessionContext()
   const terminalCwd = sessionCwds.get(sessionId) || initialCwd
+  const gitRootHint = sessionGitRoots.get(sessionId)
 
   const {
     files,
@@ -31,8 +32,8 @@ export const DiffPanel = memo(function DiffPanel({
     selectFile,
     refresh,
   } = useGitDiff(isActive
-    ? { sessionId, cwd: terminalCwd }
-    : { sessionId, cwd: terminalCwd, enabled: false })
+    ? { sessionId, cwd: terminalCwd, gitRootHint }
+    : { sessionId, cwd: terminalCwd, enabled: false, gitRootHint })
 
   // Resizable floating panel — drag left edge to widen
   const COLLAPSED_WIDTH = 80

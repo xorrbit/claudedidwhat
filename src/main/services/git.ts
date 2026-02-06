@@ -364,21 +364,11 @@ export class GitService {
     try {
       const base = baseBranch || (await this.getMainBranch(dir)) || 'HEAD'
 
-      // Get original content from base
-      let original = ''
-      try {
-        original = await result.git.show([`${base}:${filePath}`])
-      } catch {
-        // File might be new, no original content
-      }
-
-      // Get modified content from working directory (use git root since paths are repo-relative)
-      let modified = ''
-      try {
-        modified = await readFile(join(result.gitRoot, filePath), 'utf-8')
-      } catch {
-        // File might be deleted
-      }
+      // Fetch original (git show) and modified (working file) in parallel
+      const [original, modified] = await Promise.all([
+        result.git.show([`${base}:${filePath}`]).catch(() => ''),
+        readFile(join(result.gitRoot, filePath), 'utf-8').catch(() => ''),
+      ])
 
       return { original, modified }
     } catch (error) {

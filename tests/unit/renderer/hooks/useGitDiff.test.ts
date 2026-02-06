@@ -53,7 +53,7 @@ describe('useGitDiff', () => {
       expect(result.current.files).toEqual([])
     })
 
-    it('delays initial load by 2 seconds', async () => {
+    it('delays initial load by 500ms', async () => {
       mockGit.getChangedFiles.mockResolvedValue([{ path: 'file.ts', status: 'M' }])
 
       renderHook(() =>
@@ -63,9 +63,9 @@ describe('useGitDiff', () => {
       // Should not have called yet
       expect(mockGit.getChangedFiles).not.toHaveBeenCalled()
 
-      // Advance by 2 seconds and flush promises
+      // Advance by 500ms and flush promises
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(mockGit.getChangedFiles).toHaveBeenCalledWith('/test/dir')
@@ -83,7 +83,7 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.selectedFile).toBe('first.ts')
@@ -100,14 +100,9 @@ describe('useGitDiff', () => {
         useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
       )
 
-      // Initial load
+      // Initial load (auto-selects first file and prefetches diff inline)
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
-      })
-
-      // Wait for diff load (100ms delay + promise resolution)
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.diffContent).toEqual(diff)
@@ -125,16 +120,16 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       act(() => {
         result.current.selectFile('test.ts')
       })
 
-      // After the 100ms delay before loading starts
+      // Diff loading starts immediately (no debounce)
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(0)
       })
 
       expect(result.current.isDiffLoading).toBe(true)
@@ -166,26 +161,21 @@ describe('useGitDiff', () => {
         useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
       )
 
-      // Initial load (file1 is auto-selected)
+      // Initial load (file1 is auto-selected and diff prefetched inline)
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
-      })
-
-      // Wait for first file's diff
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.diffContent).toEqual(diff1)
       expect(mockGit.getFileDiff).toHaveBeenCalledTimes(1)
 
-      // Select second file
+      // Select second file (diff loads immediately, no debounce)
       act(() => {
         result.current.selectFile('file2.ts')
       })
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(0)
       })
 
       expect(result.current.diffContent).toEqual(diff2)
@@ -220,16 +210,16 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
-      // Load all 3 files
-      for (const file of files) {
+      // Load remaining files (file1 was prefetched inline during auto-select)
+      for (const file of files.slice(1)) {
         act(() => {
           result.current.selectFile(file.path)
         })
         await act(async () => {
-          await vi.advanceTimersByTimeAsync(100)
+          await vi.advanceTimersByTimeAsync(0)
         })
       }
 
@@ -258,7 +248,7 @@ describe('useGitDiff', () => {
 
       // Let findGitRoot resolve and initial load complete
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2100)
+        await vi.advanceTimersByTimeAsync(600)
       })
 
       expect(result.current.selectedFile).toBe('old-file.ts')
@@ -300,7 +290,7 @@ describe('useGitDiff', () => {
 
       // Let findGitRoot resolve and initial load
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2100)
+        await vi.advanceTimersByTimeAsync(600)
       })
 
       expect(result.current.selectedFile).toBe('file.ts')
@@ -328,7 +318,7 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.isLoading).toBe(false)
@@ -352,14 +342,9 @@ describe('useGitDiff', () => {
         useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
       )
 
-      // Initial file load
+      // Initial file load (diff prefetched inline)
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
-      })
-
-      // Initial selected-file diff load
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       const diffCallsAfterInitialLoad = mockGit.getFileDiff.mock.calls.length
@@ -387,7 +372,7 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.error).toBe('Git error')
@@ -402,12 +387,9 @@ describe('useGitDiff', () => {
         useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
       )
 
+      // Initial load — inline prefetch fails, selectedFile effect retries immediately
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
-      })
-
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(100)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       expect(result.current.diffContent).toBeNull()
@@ -441,7 +423,7 @@ describe('useGitDiff', () => {
 
       // Initial delayed load
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
       const callsAfterInit = mockGit.getChangedFiles.mock.calls.length
 
@@ -463,7 +445,7 @@ describe('useGitDiff', () => {
 
       // Initial delayed load
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
       const callsAfterInit = mockGit.getChangedFiles.mock.calls.length
 
@@ -524,7 +506,7 @@ describe('useGitDiff', () => {
 
       // Initial load
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       const callsAfterInit = mockGit.getChangedFiles.mock.calls.length
@@ -553,6 +535,41 @@ describe('useGitDiff', () => {
     })
   })
 
+  describe('gitRootHint', () => {
+    it('uses gitRootHint directly instead of calling findGitRoot', async () => {
+      mockGit.getChangedFiles.mockResolvedValue([{ path: 'file.ts', status: 'M' }])
+      mockGit.getFileDiff.mockResolvedValue({ original: 'old', modified: 'new' })
+
+      renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir', gitRootHint: '/git/root' })
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Should NOT have called findGitRoot since hint was provided
+      expect(mockGit.findGitRoot).not.toHaveBeenCalled()
+      // Should have used the hint for getChangedFiles
+      expect(mockGit.getChangedFiles).toHaveBeenCalledWith('/git/root')
+    })
+
+    it('falls back to findGitRoot when gitRootHint is undefined', async () => {
+      mockGit.findGitRoot.mockResolvedValue('/resolved/root')
+      mockGit.getChangedFiles.mockResolvedValue([])
+
+      renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      expect(mockGit.findGitRoot).toHaveBeenCalledWith('/test/dir')
+    })
+  })
+
   describe('non-git directory', () => {
     it('clears files when findGitRoot returns null', async () => {
       mockGit.findGitRoot.mockResolvedValue(null)
@@ -563,7 +580,7 @@ describe('useGitDiff', () => {
       )
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(2000)
+        await vi.advanceTimersByTimeAsync(500)
       })
 
       // Should not call getChangedFiles when not in a git repo

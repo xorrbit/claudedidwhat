@@ -59,6 +59,7 @@ describe('DiffPanel', () => {
     vi.clearAllMocks()
     mockUseSessionContext.mockReturnValue({
       sessionCwds: new Map(),
+      sessionGitRoots: new Map(),
     })
     mockUseGitDiff.mockReturnValue({ ...defaultGitDiff })
   })
@@ -119,19 +120,22 @@ describe('DiffPanel', () => {
 
   it('uses CWD from sessionCwds when available', () => {
     const cwds = new Map([['s1', '/project/subdir']])
-    mockUseSessionContext.mockReturnValue({ sessionCwds: cwds })
+    const gitRoots = new Map<string, string | null>([['s1', '/project']])
+    mockUseSessionContext.mockReturnValue({ sessionCwds: cwds, sessionGitRoots: gitRoots })
 
     render(<DiffPanel sessionId="s1" cwd="/project" />)
 
     expect(mockUseGitDiff).toHaveBeenCalledWith({
       sessionId: 's1',
       cwd: '/project/subdir',
+      gitRootHint: '/project',
     })
   })
 
   it('falls back to initial cwd when sessionCwds has no entry', () => {
     mockUseSessionContext.mockReturnValue({
       sessionCwds: new Map(),
+      sessionGitRoots: new Map(),
     })
 
     render(<DiffPanel sessionId="s1" cwd="/project" />)
@@ -139,6 +143,7 @@ describe('DiffPanel', () => {
     expect(mockUseGitDiff).toHaveBeenCalledWith({
       sessionId: 's1',
       cwd: '/project',
+      gitRootHint: undefined,
     })
   })
 
