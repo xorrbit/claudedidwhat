@@ -33,6 +33,10 @@ const mockElectronAPI = {
     onExit: vi.fn(() => () => {}),
     getCwd: vi.fn().mockResolvedValue(null),
   },
+  terminal: {
+    showContextMenu: vi.fn(),
+    onContextMenuAction: vi.fn(() => () => {}),
+  },
   shell: {
     openExternal: vi.fn().mockResolvedValue(undefined),
   },

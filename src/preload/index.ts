@@ -4,6 +4,7 @@ import {
   GIT_CHANNELS,
   FS_CHANNELS,
   GRAMMAR_CHANNELS,
+  TERMINAL_MENU_CHANNELS,
   PtySpawnOptions,
   PtyResizeOptions,
   ChangedFile,
@@ -109,6 +110,19 @@ const electronAPI: ElectronAPI = {
   grammar: {
     scan: () => ipcRenderer.invoke(GRAMMAR_CHANNELS.SCAN),
     getOnigWasm: () => ipcRenderer.invoke(GRAMMAR_CHANNELS.GET_ONIG_WASM),
+  },
+
+  terminal: {
+    showContextMenu: (hasSelection: boolean) =>
+      ipcRenderer.send(TERMINAL_MENU_CHANNELS.SHOW, hasSelection),
+
+    onContextMenuAction: (callback: (action: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, action: string) => {
+        callback(action)
+      }
+      ipcRenderer.on(TERMINAL_MENU_CHANNELS.ACTION, listener)
+      return () => ipcRenderer.removeListener(TERMINAL_MENU_CHANNELS.ACTION, listener)
+    },
   },
 
   shell: {

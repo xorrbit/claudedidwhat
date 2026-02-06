@@ -60,6 +60,12 @@ export interface DiffContent {
   modified: string
 }
 
+// Terminal context menu IPC channels
+export const TERMINAL_MENU_CHANNELS = {
+  SHOW: 'terminal:context-menu',
+  ACTION: 'terminal:context-menu-action',
+} as const
+
 // Grammar IPC channels
 export const GRAMMAR_CHANNELS = {
   SCAN: 'grammar:scan',
@@ -121,6 +127,10 @@ export interface ElectronAPI {
   grammar: {
     scan: () => Promise<GrammarScanResult>
     getOnigWasm: () => Promise<Uint8Array | null>
+  }
+  terminal: {
+    showContextMenu: (hasSelection: boolean) => void
+    onContextMenuAction: (callback: (action: string) => void) => () => void
   }
   shell: {
     openExternal: (url: string) => Promise<void>

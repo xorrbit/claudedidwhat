@@ -88,6 +88,8 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null
     let unsubscribeData: (() => void) | null = null
     let unsubscribeExit: (() => void) | null = null
+    let unsubscribeContextMenu: (() => void) | null = null
+    let handleContextMenu: ((e: MouseEvent) => void) | null = null
 
     // Wait for container to have dimensions before initializing
     const waitForDimensions = (callback: () => void, attempts = 0) => {
@@ -164,6 +166,36 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
       } catch (e) {
         console.warn('WebGL addon failed to load, using canvas renderer:', e)
       }
+
+      // Right-click context menu
+      handleContextMenu = (e: MouseEvent) => {
+        e.preventDefault()
+        window.electronAPI.terminal.showContextMenu(terminal!.hasSelection())
+      }
+      container.addEventListener('contextmenu', handleContextMenu)
+
+      // Handle context menu actions from main process
+      unsubscribeContextMenu = window.electronAPI.terminal.onContextMenuAction((action) => {
+        if (!terminal) return
+        switch (action) {
+          case 'copy':
+            if (terminal.hasSelection()) {
+              navigator.clipboard.writeText(terminal.getSelection())
+            }
+            break
+          case 'paste':
+            navigator.clipboard.readText().then((text) => {
+              if (text) terminal!.paste(text)
+            })
+            break
+          case 'selectAll':
+            terminal.selectAll()
+            break
+          case 'clear':
+            terminal.clear()
+            break
+        }
+      })
 
       // Handle terminal input
       terminal.onData((data) => {
@@ -259,6 +291,8 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
       if (resizeTimeout) clearTimeout(resizeTimeout)
       if (unsubscribeData) unsubscribeData()
       if (unsubscribeExit) unsubscribeExit()
+      if (unsubscribeContextMenu) unsubscribeContextMenu()
+      if (handleContextMenu) container.removeEventListener('contextmenu', handleContextMenu)
       if (resizeObserver) resizeObserver.disconnect()
       window.electronAPI.pty.kill(sessionId)
       if (terminal) terminal.dispose()

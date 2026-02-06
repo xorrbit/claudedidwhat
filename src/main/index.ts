@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, dialog, screen, shell } from 'electron'
 import { execFile } from 'child_process'
 import { readFileSync } from 'fs'
 import { platform } from 'os'
@@ -12,6 +12,7 @@ import { registerPtyHandlers } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers } from './ipc/fs'
 import { registerGrammarHandlers } from './ipc/grammar'
+import { TERMINAL_MENU_CHANNELS } from '@shared/types'
 import { createAppMenu } from './menu'
 
 function isWSL(): boolean {
@@ -114,6 +115,31 @@ function registerIpcHandlers() {
 
   ipcMain.on('app:quit', () => {
     app.quit()
+  })
+
+  // Terminal context menu
+  ipcMain.on(TERMINAL_MENU_CHANNELS.SHOW, (event, hasSelection: boolean) => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Copy',
+        enabled: hasSelection,
+        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, 'copy'),
+      },
+      {
+        label: 'Paste',
+        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, 'paste'),
+      },
+      { type: 'separator' },
+      {
+        label: 'Select All',
+        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, 'selectAll'),
+      },
+      {
+        label: 'Clear',
+        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, 'clear'),
+      },
+    ])
+    menu.popup()
   })
 
   // Open URLs in system browser (WSL2-aware)
