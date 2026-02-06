@@ -51,7 +51,7 @@ mainWindow.webContents.on('will-navigate', (event, url) => {
 mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 ```
 
-**Status:** Open
+**Status:** Fixed
 
 ---
 

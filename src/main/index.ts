@@ -72,6 +72,14 @@ function createWindow() {
     mainWindow?.show()
   })
 
+  // Prevent navigation to untrusted URLs — if renderer content ever tries to navigate
+  // (drag-drop, anchor click, window.location), block it unless it's a known-safe origin.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (process.env.VITE_DEV_SERVER_URL && url.startsWith(process.env.VITE_DEV_SERVER_URL)) return
+    if (!url.startsWith('file://')) event.preventDefault()
+  })
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+
   // Load the app
   if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173')
