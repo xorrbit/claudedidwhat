@@ -8,10 +8,12 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 
 - **Split-pane layout**: Terminal on the left (50%), diff viewer on the right (50%), with resizable divider
 - **Smart tab naming**: Tabs show git branch name, or directory name when on main/master or outside a git repo
-- **Multi-tab support**: Manage multiple sessions with keyboard shortcuts
+- **Multi-tab support**: Manage multiple sessions with keyboard shortcuts, or double-click the tab bar to open a new tab
 - **Real-time git diff**: Automatically detects and displays file changes with floating overlay file list
 - **Monaco-powered diff view**: Side-by-side comparison with full syntax highlighting, switchable between Automatic, Unified, and Split layouts
 - **VSCode syntax grammars**: Automatically picks up TextMate grammars from your installed VSCode extensions — if VSCode can highlight it, so can your diffs
+- **Terminal context menu**: Right-click for Copy, Paste, Select All, and Clear
+- **WebGL-accelerated terminal**: Hardware-accelerated rendering for smooth scrolling and output
 - **Cross-platform**: Works on macOS, Windows, and Linux
 - **Streamlined diff view**: Review AI changes faster so you can pretend you read them
 
