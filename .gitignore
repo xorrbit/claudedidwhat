@@ -20,6 +20,12 @@ release/
 *.sln
 *.sw?
 
+# Claude Code
+.claude/
+
+# Worktrees
+.worktrees/
+
 # OS files
 .DS_Store
 Thumbs.db
