@@ -43,6 +43,7 @@ export default defineConfig({
     renderer(),
   ],
   resolve: { alias },
+  server: { host: 'localhost' },
   build: {
     outDir: 'dist/renderer',
   },

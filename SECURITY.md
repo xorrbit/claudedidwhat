@@ -224,7 +224,7 @@ Vite defaults to `localhost`, but if a developer runs with `--host 0.0.0.0`, the
 
 **Fix:** Explicitly set `server: { host: 'localhost' }`.
 
-**Status:** Open — low priority
+**Status:** Fixed
 
 ---
 
