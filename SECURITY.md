@@ -111,7 +111,7 @@ Shell integration scripts are written to a fixed path under temp (`/tmp/claudedi
 
 **Fix:** Use a per-user, app-controlled directory (e.g. app data) or `mkdtemp` with ownership/symlink checks before writing.
 
-**Status:** Open
+**Status:** Fixed — shell integration scripts now use `app.getPath('userData')` with symlink rejection
 
 ---
 
