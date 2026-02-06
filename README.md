@@ -10,7 +10,8 @@ A multiplatform terminal emulator with an integrated code review/diff panel, des
 - **Smart tab naming**: Tabs show git branch name, or directory name when on main/master or outside a git repo
 - **Multi-tab support**: Manage multiple sessions with keyboard shortcuts
 - **Real-time git diff**: Automatically detects and displays file changes with floating overlay file list
-- **Monaco-powered diff view**: Syntax highlighting with side-by-side comparison
+- **Monaco-powered diff view**: Side-by-side comparison with full syntax highlighting
+- **VSCode syntax grammars**: Automatically picks up TextMate grammars from your installed VSCode extensions — if VSCode can highlight it, so can your diffs
 - **Cross-platform**: Works on macOS, Windows, and Linux
 - **Streamlined diff view**: Review AI changes faster so you can pretend you read them
 
@@ -91,7 +92,7 @@ Optimized for large repositories and multi-tab workflows:
 | Styling | Tailwind CSS + JetBrains Mono |
 | Terminal | xterm.js |
 | PTY | node-pty |
-| Diff View | Monaco Editor |
+| Diff View | Monaco Editor + vscode-textmate |
 | Git | simple-git |
 | File Watching | chokidar |
 | Testing | Vitest + Playwright |
