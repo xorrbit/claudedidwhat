@@ -10,6 +10,7 @@
     "plugin:@typescript-eslint/recommended",
     "plugin:react/recommended",
     "plugin:react-hooks/recommended",
+    "plugin:security/recommended-legacy",
     "prettier"
   ],
   "parser": "@typescript-eslint/parser",
@@ -31,7 +32,16 @@
     "react/prop-types": "off",
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "@typescript-eslint/explicit-function-return-type": "off",
-    "@typescript-eslint/no-explicit-any": "error"
+    "@typescript-eslint/no-explicit-any": "error",
+    "security/detect-object-injection": "off"
   },
+  "overrides": [
+    {
+      "files": ["src/main/services/**/*.ts", "src/main/ipc/**/*.ts"],
+      "rules": {
+        "security/detect-non-literal-fs-filename": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["dist", "node_modules", "*.js"]
 }

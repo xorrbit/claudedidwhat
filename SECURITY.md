@@ -202,7 +202,7 @@ Parameters like `ref` and `baseBranch` are interpolated into `simple-git` comman
 
 No security-specific ESLint plugins are configured. Adding `eslint-plugin-security` would catch patterns like `eval()`, `exec()`, and other risky APIs during development.
 
-**Status:** Open — low priority
+**Status:** Fixed — `eslint-plugin-security` added with `recommended-legacy` config; `detect-non-literal-fs-filename` disabled for `src/main/services/` and `src/main/ipc/` (dynamic fs access is by design, with existing traversal guards); `detect-object-injection` disabled globally (false positives on normal bracket access)
 
 ---
 
