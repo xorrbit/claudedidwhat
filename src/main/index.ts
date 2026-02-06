@@ -45,6 +45,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: '#1e1e1e',
+    icon: join(__dirname, '../../assets/claudedidwhat.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,

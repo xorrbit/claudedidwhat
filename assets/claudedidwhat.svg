@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="400" height="400" rx="24" fill="#0c0c0c"/>
+
+  <!--
+    Pixel grid: 16 wide x 10 tall
+    Each cell = 16px
+    Mascot total: 256 x 160
+    Centered: x_offset = (400-256)/2 = 72, y_offset = (400-160)/2 + 20 = 140
+    (shifted down slightly to leave room for ?!)
+  -->
+  <g transform="translate(200,200) scale(1.25) translate(-200,-154)">
+  <g id="mascot">
+    <!-- Row 0: ..PPPPPPPPPPPP.. -->
+    <rect x="104" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="140" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="140" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 1: ..PPPPPPPPPPPP.. -->
+    <rect x="104" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="156" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="156" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 2: ..PPBPPPPPPBPP.. (eyes) -->
+    <rect x="104" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="172" width="16" height="16" fill="#000000"/>
+    <rect x="152" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="172" width="16" height="16" fill="#000000"/>
+    <rect x="264" y="172" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="172" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 3: ..PPBPPPPPPBPP.. (eyes) -->
+    <rect x="104" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="188" width="16" height="16" fill="#000000"/>
+    <rect x="152" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="188" width="16" height="16" fill="#000000"/>
+    <rect x="264" y="188" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="188" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 4: PPPPPPPPPPPPPPPP (full body) -->
+    <rect x="72" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="88" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="104" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="296" y="204" width="16" height="16" fill="#d78787"/>
+    <rect x="312" y="204" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 5: PPPPPPPPPPPPPPPP (full body) -->
+    <rect x="72" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="88" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="104" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="296" y="220" width="16" height="16" fill="#d78787"/>
+    <rect x="312" y="220" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 6: ..PPPPPPPPPPPP.. -->
+    <rect x="104" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="236" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="236" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 7: ..PPPPPPPPPPPP.. -->
+    <rect x="104" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="120" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="136" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="168" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="184" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="200" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="216" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="248" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="252" width="16" height="16" fill="#d78787"/>
+    <rect x="280" y="252" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 8: ...P.P....P.P... (legs) -->
+    <rect x="120" y="268" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="268" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="268" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="268" width="16" height="16" fill="#d78787"/>
+
+    <!-- Row 9: ...P.P....P.P... (legs) -->
+    <rect x="120" y="284" width="16" height="16" fill="#d78787"/>
+    <rect x="152" y="284" width="16" height="16" fill="#d78787"/>
+    <rect x="232" y="284" width="16" height="16" fill="#d78787"/>
+    <rect x="264" y="284" width="16" height="16" fill="#d78787"/>
+  </g>
+
+  <!-- Pixel art ?! using same 16px blocks as mascot -->
+  <g id="punctuation" fill="#d78787">
+    <!-- ? character (fat, 6 cols x 8 rows) -->
+    <!-- Row 0: .XXXX. -->
+    <rect x="128" y="8" width="16" height="16"/>
+    <rect x="144" y="8" width="16" height="16"/>
+    <rect x="160" y="8" width="16" height="16"/>
+    <rect x="176" y="8" width="16" height="16"/>
+    <!-- Row 1: XX..XX -->
+    <rect x="112" y="24" width="16" height="16"/>
+    <rect x="128" y="24" width="16" height="16"/>
+    <rect x="176" y="24" width="16" height="16"/>
+    <rect x="192" y="24" width="16" height="16"/>
+    <!-- Row 2: ....XX -->
+    <rect x="176" y="40" width="16" height="16"/>
+    <rect x="192" y="40" width="16" height="16"/>
+    <!-- Row 3: ..XXX. -->
+    <rect x="144" y="56" width="16" height="16"/>
+    <rect x="160" y="56" width="16" height="16"/>
+    <rect x="176" y="56" width="16" height="16"/>
+    <!-- Row 4: ..XX.. -->
+    <rect x="144" y="72" width="16" height="16"/>
+    <rect x="160" y="72" width="16" height="16"/>
+    <!-- Row 5: ..XX.. -->
+    <rect x="144" y="88" width="16" height="16"/>
+    <rect x="160" y="88" width="16" height="16"/>
+    <!-- Row 6: ...... (gap) -->
+    <!-- Row 7: ..XX.. (dot) -->
+    <rect x="144" y="120" width="16" height="16"/>
+    <rect x="160" y="120" width="16" height="16"/>
+
+    <!-- ! character (2 cols x 8 rows), origin x=240, y=8 -->
+    <!-- Row 0-5: XX (stem) -->
+    <rect x="240" y="8" width="16" height="16"/>
+    <rect x="256" y="8" width="16" height="16"/>
+    <rect x="240" y="24" width="16" height="16"/>
+    <rect x="256" y="24" width="16" height="16"/>
+    <rect x="240" y="40" width="16" height="16"/>
+    <rect x="256" y="40" width="16" height="16"/>
+    <rect x="240" y="56" width="16" height="16"/>
+    <rect x="256" y="56" width="16" height="16"/>
+    <rect x="240" y="72" width="16" height="16"/>
+    <rect x="256" y="72" width="16" height="16"/>
+    <rect x="240" y="88" width="16" height="16"/>
+    <rect x="256" y="88" width="16" height="16"/>
+    <!-- Row 6: .. (gap) -->
+    <!-- Row 7: XX (dot) -->
+    <rect x="240" y="120" width="16" height="16"/>
+    <rect x="256" y="120" width="16" height="16"/>
+  </g>
+  </g>
+</svg>
