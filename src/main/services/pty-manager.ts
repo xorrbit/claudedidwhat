@@ -48,21 +48,23 @@ PROMPT_COMMAND="__cdw_report_cwd\${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
   writeFileSync(join(dir, 'bash-integration.bash'), bashScript)
 
   // Zsh integration: ZDOTDIR trick
-  // .zshenv restores original ZDOTDIR and sources user's .zshenv
+  // .zshenv sources user's .zshenv but keeps ZDOTDIR pointing here
+  // so that .zshrc is still loaded from the integration dir
   const zshEnv = `_CDW_ORIG_ZDOTDIR="\${CDW_ORIGINAL_ZDOTDIR:-$HOME}"
+[ -f "$_CDW_ORIG_ZDOTDIR/.zshenv" ] && source "$_CDW_ORIG_ZDOTDIR/.zshenv"
+`
+  writeFileSync(join(dir, '.zshenv'), zshEnv)
+
+  // .zshrc sources user's .zshrc, sets up OSC 7, then restores ZDOTDIR
+  const zshRc = `[ -f "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc" ] && source "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc"
+__cdw_report_cwd() { printf '\\e]7;file://%s%s\\a' "$HOST" "$PWD"; }
+precmd_functions+=(__cdw_report_cwd)
 if [ -n "$CDW_ORIGINAL_ZDOTDIR" ]; then
   ZDOTDIR="$CDW_ORIGINAL_ZDOTDIR"
 else
   unset ZDOTDIR
 fi
-[ -f "$_CDW_ORIG_ZDOTDIR/.zshenv" ] && source "$_CDW_ORIG_ZDOTDIR/.zshenv"
-`
-  writeFileSync(join(dir, '.zshenv'), zshEnv)
-
-  // .zshrc sources user's .zshrc then sets up OSC 7 reporting
-  const zshRc = `[ -f "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc" ] && source "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc"
-__cdw_report_cwd() { printf '\\e]7;file://%s%s\\a' "$HOST" "$PWD"; }
-precmd_functions+=(__cdw_report_cwd)
+unset CDW_ORIGINAL_ZDOTDIR _CDW_ORIG_ZDOTDIR
 `
   writeFileSync(join(dir, '.zshrc'), zshRc)
 }

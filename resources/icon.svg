@@ -1,6 +1,6 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="1024" height="1024" rx="180" fill="#1E1E1E"/>
+  <!-- Background (no rounded corners — macOS applies its own mask) -->
+  <rect width="1024" height="1024" fill="#1E1E1E"/>
 
   <!-- Terminal window frame -->
   <rect x="80" y="120" width="864" height="784" rx="24" fill="#2D2D2D" stroke="#3E3E3E" stroke-width="4"/>

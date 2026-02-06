@@ -46,7 +46,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: '#1e1e1e',
-    icon: join(__dirname, '../../assets/claudedidwhat.png'),
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
@@ -172,7 +172,7 @@ app.whenReady().then(() => {
 
   // Set dock icon on macOS (without this, dev mode shows the default Electron icon)
   if (process.platform === 'darwin' && app.dock) {
-    app.dock.setIcon(nativeImage.createFromPath(join(__dirname, '../../assets/claudedidwhat.png')))
+    app.dock.setIcon(nativeImage.createFromPath(join(__dirname, '../../resources/icon.png')))
   }
 
   createAppMenu()
