@@ -170,7 +170,7 @@ object-src 'none'; base-uri 'self'; form-action 'self';
 
 These close edge cases around plugin embeds, `<base>` tag injection, and form submissions to external URLs.
 
-**Status:** Open
+**Status:** Fixed
 
 ---
 
