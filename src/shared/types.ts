@@ -67,6 +67,15 @@ export const TERMINAL_MENU_CHANNELS = {
   ACTION: 'terminal:context-menu-action',
 } as const
 
+// API IPC channels
+export const API_CHANNELS = {
+  CREATE_SESSION: 'api:create-session',
+  CLOSE_SESSION: 'api:close-session',
+  SESSION_CREATED: 'api:session-created',
+  SESSION_CREATION_FAILED: 'api:session-creation-failed',
+  SESSIONS_CHANGED: 'api:sessions-changed',
+} as const
+
 // Grammar IPC channels
 export const GRAMMAR_CHANNELS = {
   SCAN: 'grammar:scan',
@@ -128,6 +137,13 @@ export interface ElectronAPI {
   terminal: {
     showContextMenu: (hasSelection: boolean) => void
     onContextMenuAction: (callback: (action: string) => void) => () => void
+  }
+  api: {
+    onCreateSession: (callback: (requestId: string, cwd?: string) => void) => () => void
+    onCloseSession: (callback: (sessionId: string) => void) => () => void
+    sessionCreated: (requestId: string, session: Session) => void
+    sessionCreationFailed: (requestId: string, error: string) => void
+    sessionsChanged: (sessions: Session[]) => void
   }
   shell: {
     openExternal: (url: string) => Promise<void>

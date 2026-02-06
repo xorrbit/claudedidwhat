@@ -12,8 +12,10 @@ import { registerPtyHandlers, ptyManager } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers, fileWatcher } from './ipc/fs'
 import { registerGrammarHandlers } from './ipc/grammar'
+import { registerApiHandlers } from './ipc/api'
 import { TERMINAL_MENU_CHANNELS } from '@shared/types'
 import { createAppMenu } from './menu'
+import { ApiServer } from './services/api-server'
 
 function isWSL(): boolean {
   if (platform() !== 'linux') return false
@@ -25,6 +27,7 @@ function isWSL(): boolean {
 }
 
 let mainWindow: BrowserWindow | null = null
+const apiServer = new ApiServer(ptyManager, sendToRenderer)
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -177,7 +180,9 @@ app.whenReady().then(() => {
 
   createAppMenu()
   registerIpcHandlers()
+  registerApiHandlers(ipcMain, apiServer)
   createWindow()
+  apiServer.start()
   console.log('Window created')
 
   app.on('activate', () => {
@@ -195,6 +200,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  apiServer.stop()
   ptyManager.killAll()
   fileWatcher.unwatchAll()
 })

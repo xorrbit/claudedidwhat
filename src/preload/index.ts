@@ -5,11 +5,13 @@ import {
   FS_CHANNELS,
   GRAMMAR_CHANNELS,
   TERMINAL_MENU_CHANNELS,
+  API_CHANNELS,
   PtySpawnOptions,
   PtyResizeOptions,
   ChangedFile,
   DiffContent,
   FileChangeEvent,
+  Session,
   ElectronAPI,
 } from '@shared/types'
 
@@ -113,6 +115,33 @@ const electronAPI: ElectronAPI = {
       ipcRenderer.on(TERMINAL_MENU_CHANNELS.ACTION, listener)
       return () => ipcRenderer.removeListener(TERMINAL_MENU_CHANNELS.ACTION, listener)
     },
+  },
+
+  api: {
+    onCreateSession: (callback: (requestId: string, cwd?: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, requestId: string, cwd?: string) => {
+        callback(requestId, cwd)
+      }
+      ipcRenderer.on(API_CHANNELS.CREATE_SESSION, listener)
+      return () => ipcRenderer.removeListener(API_CHANNELS.CREATE_SESSION, listener)
+    },
+
+    onCloseSession: (callback: (sessionId: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string) => {
+        callback(sessionId)
+      }
+      ipcRenderer.on(API_CHANNELS.CLOSE_SESSION, listener)
+      return () => ipcRenderer.removeListener(API_CHANNELS.CLOSE_SESSION, listener)
+    },
+
+    sessionCreated: (requestId: string, session: Session) =>
+      ipcRenderer.send(API_CHANNELS.SESSION_CREATED, requestId, session),
+
+    sessionCreationFailed: (requestId: string, error: string) =>
+      ipcRenderer.send(API_CHANNELS.SESSION_CREATION_FAILED, requestId, error),
+
+    sessionsChanged: (sessions: Session[]) =>
+      ipcRenderer.send(API_CHANNELS.SESSIONS_CHANGED, sessions),
   },
 
   shell: {

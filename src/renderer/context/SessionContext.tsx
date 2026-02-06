@@ -6,7 +6,7 @@ interface SessionContextType {
   activeSessionId: string | null
   sessionCwds: Map<string, string>  // Track current CWD per session
   sessionGitRoots: Map<string, string | null>  // Track git root per session
-  createSession: (cwd?: string) => Promise<void>
+  createSession: (cwd?: string) => Promise<Session>
   closeSession: (id: string) => void
   setActiveSession: (id: string) => void
 }
@@ -62,7 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   activeSessionIdRef.current = activeSessionId
   sessionsRef.current = sessions
 
-  const createSession = useCallback(async (cwd?: string) => {
+  const createSession = useCallback(async (cwd?: string): Promise<Session> => {
     // Use provided cwd or default to home directory
     let sessionCwd = cwd || await getDefaultDirectory()
 
@@ -87,6 +87,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     setSessions((prev) => [...prev, newSession])
     setActiveSessionId(newSession.id)
+    return newSession
   }, [])
 
   const closeSession = useCallback((id: string) => {
@@ -118,6 +119,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       createSession()
     }
   }, [createSession])
+
+  // Listen for API create-session requests from main process
+  useEffect(() => {
+    const cleanup = window.electronAPI.api.onCreateSession(async (requestId, cwd) => {
+      try {
+        const session = await createSession(cwd)
+        window.electronAPI.api.sessionCreated(requestId, session)
+      } catch (err) {
+        window.electronAPI.api.sessionCreationFailed(
+          requestId,
+          err instanceof Error ? err.message : 'Session creation failed'
+        )
+      }
+    })
+    return cleanup
+  }, [createSession])
+
+  // Listen for API close-session requests from main process
+  useEffect(() => {
+    const cleanup = window.electronAPI.api.onCloseSession((sessionId) => {
+      closeSession(sessionId)
+    })
+    return cleanup
+  }, [closeSession])
+
+  // Push session list to main process whenever it changes
+  useEffect(() => {
+    window.electronAPI.api.sessionsChanged(sessions)
+  }, [sessions])
 
   // Poll for CWD/branch changes and update session names
   useEffect(() => {
