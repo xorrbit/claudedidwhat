@@ -33,7 +33,7 @@ const isDev = !app.isPackaged && (
 )
 ```
 
-**Status:** Open
+**Status:** Fixed
 
 ---
 

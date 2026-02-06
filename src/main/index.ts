@@ -13,8 +13,15 @@ import { execFile } from 'child_process'
 import { readFileSync } from 'fs'
 import { platform } from 'os'
 
+// Dev mode requires an unpackaged build — a packaged app must never honor
+// VITE_DEV_SERVER_URL or NODE_ENV, as that would let env vars trick it
+// into loading remote content in the privileged BrowserWindow.
+const isDev = !app.isPackaged && (
+  process.env.NODE_ENV === 'development' || !!process.env.VITE_DEV_SERVER_URL
+)
+
 // Suppress security warning in dev mode (Vite requires unsafe-eval for HMR)
-if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
+if (isDev) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
 }
 import { join } from 'path'
@@ -81,7 +88,7 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
   // Load the app
-  if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
+  if (isDev) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173')
     // DevTools can be opened manually with Ctrl+Shift+I or from View menu
   } else {
@@ -191,7 +198,6 @@ app.whenReady().then(() => {
   // Set Content-Security-Policy in production only.
   // Dev mode is excluded: Vite HMR needs WebSocket (ws:) connections and unsafe-eval,
   // and onHeadersReceived applies to all responses which breaks the dev server.
-  const isDev = process.env.NODE_ENV === 'development' || !!process.env.VITE_DEV_SERVER_URL
   if (!isDev) {
     const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
