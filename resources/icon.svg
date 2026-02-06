@@ -9,17 +9,16 @@
     </filter>
   </defs>
 
-  <!-- Dark background -->
-  <rect width="400" height="400" fill="#0c0c0c"/>
+  <!-- Dark background: macOS squircle shape (824/1024 of canvas, ~72px corner radius) -->
+  <rect x="39" y="39" width="322" height="322" rx="72" ry="72" fill="#0c0c0c"/>
 
   <!--
     Pixel grid: 16 wide x 10 tall
     Each cell = 16px
-    Mascot total: 256 x 160
-    Centered: x_offset = (400-256)/2 = 72, y_offset = (400-160)/2 + 20 = 140
-    (shifted down slightly to leave room for ?!)
+    Content extends from y=8 to y=300, x=72 to x=328 (including 16px rect sizes)
+    Centered within squircle at scale 1.08
   -->
-  <g transform="translate(200,200) scale(1.25) translate(-200,-154)">
+  <g transform="translate(200,200) scale(1.08) translate(-200,-154)">
   <g id="mascot">
     <!-- Row 0: ..PPPPPPPPPPPP.. -->
     <rect x="104" y="140" width="16" height="16" fill="#d78787"/>
