@@ -1,5 +1,6 @@
 import { Session } from '@shared/types'
 import { Tab } from './Tab'
+import logoPng from '../../../../assets/claudedidwhat.png'
 
 interface TabBarProps {
   sessions: Session[]
@@ -22,9 +23,12 @@ export function TabBar({
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-obsidian-border to-transparent opacity-50" />
 
       {/* Draggable area for window movement */}
-      <div className="w-40 flex-shrink-0 app-drag flex flex-col justify-center pl-4">
-        <span className="text-xs text-obsidian-text-muted font-medium leading-tight">Claude Did What?!</span>
-        <span className="text-[9px] text-obsidian-text-muted/50 leading-tight">AI slop by Andrew Orr</span>
+      <div className="w-52 flex-shrink-0 app-drag flex items-center gap-2.5 pl-3">
+        <img src={logoPng} alt="" className="w-7 h-7 rounded-md flex-shrink-0" draggable={false} />
+        <div className="flex flex-col justify-center">
+          <span className="text-xs text-obsidian-text-muted font-medium leading-tight">Claude Did What?!</span>
+          <span className="text-[9px] text-obsidian-text-muted/50 leading-tight">AI slop by Andrew Orr</span>
+        </div>
       </div>
 
       {/* Tabs container */}
@@ -48,8 +52,22 @@ export function TabBar({
         />
       </div>
 
+      {/* Draggable area on right side */}
+      <div className="w-36 flex-shrink-0 app-drag flex items-center justify-center px-2">
+        <svg className="w-full h-5 text-obsidian-text-muted/20" viewBox="0 0 120 20" fill="currentColor" preserveAspectRatio="xMidYMid meet">
+          {Array.from({ length: 15 }, (_, i) => (
+            <g key={i}>
+              <circle cx={4 + i * 8} cy="2" r="1.2" />
+              <circle cx={4 + i * 8} cy="8" r="1.2" />
+              <circle cx={4 + i * 8} cy="14" r="1.2" />
+              <circle cx={4 + i * 8} cy="20" r="1.2" />
+            </g>
+          ))}
+        </svg>
+      </div>
+
       {/* Window controls */}
-      <div className="flex items-center flex-shrink-0 ml-2">
+      <div className="flex items-center flex-shrink-0">
         {/* Minimize */}
         <button
           className="w-11 h-9 flex items-center justify-center text-obsidian-text-muted hover:bg-obsidian-hover transition-colors"
