@@ -1,4 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, screen, shell } from 'electron'
+import { execFile } from 'child_process'
+import { readFileSync } from 'fs'
+import { platform } from 'os'
 
 // Suppress security warning in dev mode (Vite requires unsafe-eval for HMR)
 if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
@@ -10,6 +13,15 @@ import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers } from './ipc/fs'
 import { registerGrammarHandlers } from './ipc/grammar'
 import { createAppMenu } from './menu'
+
+function isWSL(): boolean {
+  if (platform() !== 'linux') return false
+  try {
+    return readFileSync('/proc/version', 'utf-8').toLowerCase().includes('microsoft')
+  } catch {
+    return false
+  }
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -101,6 +113,19 @@ function registerIpcHandlers() {
 
   ipcMain.on('app:quit', () => {
     app.quit()
+  })
+
+  // Open URLs in system browser (WSL2-aware)
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    if (!/^https?:\/\//i.test(url)) return
+
+    if (isWSL()) {
+      // On WSL2, shell.openExternal uses xdg-open which may not reach the Windows browser.
+      // WSLg holds onto focus so the browser opens in the background — unavoidable.
+      execFile('explorer.exe', [url])
+    } else {
+      await shell.openExternal(url)
+    }
   })
 }
 

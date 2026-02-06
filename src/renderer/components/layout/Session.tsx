@@ -2,6 +2,7 @@ import { memo, useRef, useCallback, useEffect, forwardRef, useImperativeHandle }
 import { ResizableSplit } from './ResizableSplit'
 import { Terminal, TerminalHandle } from '../terminal/Terminal'
 import { DiffPanel } from '../diff/DiffPanel'
+import { useSessionContext } from '../../context/SessionContext'
 
 interface SessionProps {
   sessionId: string
@@ -16,6 +17,11 @@ export interface SessionHandle {
 export const Session = memo(forwardRef<SessionHandle, SessionProps>(
   function Session({ sessionId, cwd, isActive }, ref) {
   const terminalRef = useRef<TerminalHandle>(null)
+  const { closeSession } = useSessionContext()
+
+  const handleExit = useCallback(() => {
+    closeSession(sessionId)
+  }, [closeSession, sessionId])
 
   const focusTerminal = useCallback(() => {
     terminalRef.current?.focus()
@@ -39,7 +45,7 @@ export const Session = memo(forwardRef<SessionHandle, SessionProps>(
   return (
     <div className="h-full">
       <ResizableSplit
-        left={<Terminal ref={terminalRef} sessionId={sessionId} cwd={cwd} />}
+        left={<Terminal ref={terminalRef} sessionId={sessionId} cwd={cwd} onExit={handleExit} />}
         right={<DiffPanel sessionId={sessionId} cwd={cwd} onFocusTerminal={focusTerminal} />}
         initialRatio={0.5}
         minRatio={0.2}

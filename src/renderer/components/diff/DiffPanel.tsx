@@ -33,7 +33,10 @@ export const DiffPanel = memo(function DiffPanel({ sessionId, cwd: initialCwd, o
   const [isResizing, setIsResizing] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const toggleCollapsed = useCallback(() => setIsCollapsed(prev => !prev), [])
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => !prev)
+    onFocusTerminal?.()
+  }, [onFocusTerminal])
 
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()

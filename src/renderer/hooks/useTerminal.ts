@@ -8,6 +8,7 @@ import 'xterm/css/xterm.css'
 interface UseTerminalOptions {
   sessionId: string
   cwd: string
+  onExit?: () => void
 }
 
 interface UseTerminalReturn {
@@ -40,7 +41,7 @@ const TERMINAL_THEME = {
   brightWhite: '#fafafa',
 }
 
-export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminalReturn {
+export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -124,7 +125,9 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
 
       // Create addons
       fitAddon = new FitAddon()
-      const webLinksAddon = new WebLinksAddon()
+      const webLinksAddon = new WebLinksAddon((_event, url) => {
+        window.electronAPI.shell.openExternal(url)
+      })
 
       terminal.loadAddon(fitAddon)
       terminal.loadAddon(webLinksAddon)
@@ -175,9 +178,9 @@ export function useTerminal({ sessionId, cwd }: UseTerminalOptions): UseTerminal
       })
 
       // Handle PTY exit
-      unsubscribeExit = window.electronAPI.pty.onExit((sid, code) => {
-        if (sid === sessionId && terminal) {
-          terminal.write(`\r\n\x1b[90mProcess exited with code ${code}\x1b[0m\r\n`)
+      unsubscribeExit = window.electronAPI.pty.onExit((sid, _code) => {
+        if (sid === sessionId) {
+          onExit?.()
         }
       })
 

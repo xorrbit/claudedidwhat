@@ -120,6 +120,9 @@ export interface ElectronAPI {
     scan: () => Promise<GrammarScanResult>
     getOnigWasm: () => Promise<Uint8Array | null>
   }
+  shell: {
+    openExternal: (url: string) => Promise<void>
+  }
   window: {
     minimize: () => void
     maximize: () => void

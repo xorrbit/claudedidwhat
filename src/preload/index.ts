@@ -108,6 +108,10 @@ const electronAPI: ElectronAPI = {
     getOnigWasm: () => ipcRenderer.invoke(GRAMMAR_CHANNELS.GET_ONIG_WASM),
   },
 
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  },
+
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     maximize: () => ipcRenderer.send('window:maximize'),
