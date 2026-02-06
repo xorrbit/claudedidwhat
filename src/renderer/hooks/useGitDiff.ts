@@ -35,6 +35,10 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
   const wasEnabledRef = useRef(enabled)
   const loadRequestId = useRef(0)
   const loadFilesRef = useRef<() => Promise<void>>()
+  // Track enabled in a ref so watcher callbacks can check it without
+  // the watcher effect needing `enabled` in its dependency array.
+  const enabledRef = useRef(enabled)
+  useEffect(() => { enabledRef.current = enabled }, [enabled])
   // LRU cache: Map maintains insertion order, so we delete+re-add on access
   const diffCache = useRef<Map<string, DiffContent>>(new Map())
 
@@ -85,8 +89,6 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
 
   // Load changed files and refresh diff if a file is selected
   const loadFiles = useCallback(async () => {
-    if (!enabled) return
-
     if (!gitRoot) {
       setFiles([])
       setError(null)
@@ -125,6 +127,9 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
           return
         }
 
+        // Skip expensive diff refresh for background tabs
+        if (!enabledRef.current) return
+
         // Refresh diff content for currently selected file
         try {
           const diff = await window.electronAPI.git.getFileDiff(gitRoot, selectedPath)
@@ -160,7 +165,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
         setIsLoading(false)
       }
     }
-  }, [enabled, gitRoot, setCacheEntry])
+  }, [gitRoot, setCacheEntry])
 
   // Keep ref in sync so mount timeout always calls latest version
   loadFilesRef.current = loadFiles
@@ -177,15 +182,19 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     return () => clearTimeout(timer)
   }, [enabled])
 
-  // When reactivating an already-initialized tab, refresh immediately.
+  // When reactivating an already-initialized tab, refresh after a short debounce
+  // so rapid tab switches don't fire intermediate requests.
   useEffect(() => {
     const wasEnabled = wasEnabledRef.current
     wasEnabledRef.current = enabled
 
     if (enabled && !wasEnabled && initialLoadDone.current) {
-      loadFiles()
+      const timer = setTimeout(() => {
+        loadFilesRef.current?.()
+      }, 150)
+      return () => clearTimeout(timer)
     }
-  }, [enabled, loadFiles])
+  }, [enabled])
 
   // React to git root changes (after initial load)
   useEffect(() => {
@@ -270,10 +279,12 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     }
   }, [enabled, gitRoot, cwd, selectedFile, getCacheEntry, setCacheEntry])
 
-  // Watch for file changes and refresh git status reactively
-  // Depends on gitRoot so cd'ing within a repo does NOT restart the watcher
+  // Watch for file changes and refresh git status reactively.
+  // Lifecycle is tied to sessionId + gitRoot only — NOT to `enabled`.
+  // This avoids tearing down and rebuilding the watcher on every tab switch,
+  // which was the main source of lag during rapid switching.
   useEffect(() => {
-    if (!enabled || !gitRoot) return
+    if (!gitRoot) return
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null
     let isRefreshing = false
@@ -281,8 +292,8 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     let cancelled = false
 
     const debouncedRefresh = () => {
-      // Don't refresh if hidden or already refreshing
-      if (document.hidden || isRefreshing) return
+      // Skip refresh if window hidden, already refreshing, or tab inactive
+      if (document.hidden || isRefreshing || !enabledRef.current) return
 
       if (debounceTimer) {
         clearTimeout(debounceTimer)
@@ -291,7 +302,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
       debounceTimer = setTimeout(async () => {
         isRefreshing = true
         try {
-          await loadFiles()
+          await loadFilesRef.current?.()
         } finally {
           isRefreshing = false
         }
@@ -311,8 +322,8 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
       // Fallback poll every 5s only when native watcher is unavailable
       // (on WSL2 this becomes the primary refresh mechanism)
       fallbackInterval = setInterval(() => {
-        if (!document.hidden && !isRefreshing) {
-          loadFiles()
+        if (!document.hidden && !isRefreshing && enabledRef.current) {
+          loadFilesRef.current?.()
         }
       }, 5000)
     }
@@ -322,9 +333,9 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
     })
     void startWatching()
 
-    // Refresh when tab becomes visible
+    // Refresh when tab becomes visible (and this tab is active)
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && enabledRef.current) {
         debouncedRefresh()
       }
     }
@@ -338,7 +349,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true }: UseGitDiffOptions
       window.electronAPI.fs.watchStop(sessionId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [enabled, sessionId, gitRoot, loadFiles])
+  }, [sessionId, gitRoot])
 
   const selectFile = useCallback((path: string) => {
     // Check cache first for instant switching (also marks as recently used)
