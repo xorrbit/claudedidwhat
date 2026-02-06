@@ -47,7 +47,7 @@ npm run package:mac     # macOS (dmg)
 npm run package:win     # Windows (exe)
 ```
 
-> **Note**: The `postinstall` script automatically rebuilds `node-pty` for Electron. If you encounter native module errors, run `npx @electron/rebuild -f -w node-pty`.
+> **Note**: The `postinstall` script automatically rebuilds `node-pty` for Electron. If you encounter native module errors, run `npx electron-rebuild -f -w node-pty`.
 
 ### Pre-built Binaries
 
@@ -123,6 +123,10 @@ npm run lint
 # Format code
 npm run format
 ```
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the app's security architecture, threat model, and audit history.
 
 ## License
 
