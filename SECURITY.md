@@ -154,7 +154,7 @@ Permission behavior varies by API/platform, but there is no explicit allow/deny 
 session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
 ```
 
-**Status:** Open
+**Status:** Fixed
 
 ---
 

@@ -210,6 +210,10 @@ app.whenReady().then(() => {
     })
   }
 
+  // Deny all permission requests — a terminal emulator needs no browser permissions
+  // (camera, microphone, geolocation, notifications, etc.).
+  session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
+
   // Set dock icon on macOS in dev mode (packaged apps use the .icns from the app bundle)
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
     app.dock.setIcon(nativeImage.createFromPath(join(__dirname, '../../resources/icon.png')))
