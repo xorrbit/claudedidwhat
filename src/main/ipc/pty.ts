@@ -17,6 +17,9 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
         onExit: (code) => {
           sendToRenderer(PTY_CHANNELS.EXIT, sessionId, code)
         },
+        onCwdChanged: (cwd) => {
+          sendToRenderer(PTY_CHANNELS.CWD_CHANGED, sessionId, cwd)
+        },
       })
     } catch (err) {
       console.error('Failed to spawn PTY:', err)

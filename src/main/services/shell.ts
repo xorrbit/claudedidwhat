@@ -81,7 +81,7 @@ function detectWindowsShell(): ShellInfo {
   }
 }
 
-function getShellName(shellPath: string): string {
+export function getShellName(shellPath: string): string {
   const baseName = shellPath.split('/').pop() || shellPath
 
   const shellNames: Record<string, string> = {

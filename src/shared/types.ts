@@ -13,6 +13,7 @@ export const PTY_CHANNELS = {
   KILL: 'pty:kill',
   DATA: 'pty:data',
   EXIT: 'pty:exit',
+  CWD_CHANGED: 'pty:cwdChanged',
 } as const
 
 // Git IPC channels
@@ -102,6 +103,7 @@ export interface ElectronAPI {
     kill: (sessionId: string) => void
     onData: (callback: (sessionId: string, data: string) => void) => () => void
     onExit: (callback: (sessionId: string, code: number) => void) => () => void
+    onCwdChanged: (callback: (sessionId: string, cwd: string) => void) => () => void
     getCwd: (sessionId: string) => Promise<string | null>
   }
   git: {

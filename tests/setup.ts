@@ -31,6 +31,7 @@ const mockElectronAPI = {
     kill: vi.fn(),
     onData: vi.fn(() => () => {}),
     onExit: vi.fn(() => () => {}),
+    onCwdChanged: vi.fn(() => () => {}),
     getCwd: vi.fn().mockResolvedValue(null),
   },
   terminal: {

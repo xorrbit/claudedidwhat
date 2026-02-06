@@ -1,15 +1,17 @@
 import * as pty from 'node-pty'
-import { platform } from 'os'
-import { existsSync, readlinkSync } from 'fs'
+import { platform, tmpdir } from 'os'
+import { existsSync, readlinkSync, mkdirSync, writeFileSync } from 'fs'
+import { join } from 'path'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { detectShell } from './shell'
+import { detectShell, getShellName } from './shell'
 
 const execAsync = promisify(exec)
 
 interface PtyCallbacks {
   onData: (data: string) => void
   onExit: (code: number) => void
+  onCwdChanged?: (cwd: string) => void
 }
 
 interface PtyInstance {
@@ -22,11 +24,96 @@ interface CwdCache {
   timestamp: number
 }
 
+// Regex to match OSC 7 escape sequences: \e]7;file://hostname/path\a or \e]7;file://hostname/path\e\\
+const OSC7_REGEX = /\x1b\]7;file:\/\/[^/]*(\/[^\x07\x1b]*?)(?:\x07|\x1b\\)/
+
+interface ShellIntegration {
+  args: string[]
+  env: Record<string, string>
+}
+
+function getIntegrationDir(): string {
+  return join(tmpdir(), 'claudedidwhat-shell-integration')
+}
+
+function ensureShellIntegrationScripts(): void {
+  const dir = getIntegrationDir()
+  mkdirSync(dir, { recursive: true })
+
+  // Bash integration: source user's .bashrc then set up OSC 7 reporting
+  const bashScript = `[ -f ~/.bashrc ] && source ~/.bashrc
+__cdw_report_cwd() { printf '\\e]7;file://%s%s\\a' "$HOSTNAME" "$PWD"; }
+PROMPT_COMMAND="__cdw_report_cwd\${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+`
+  writeFileSync(join(dir, 'bash-integration.bash'), bashScript)
+
+  // Zsh integration: ZDOTDIR trick
+  // .zshenv restores original ZDOTDIR and sources user's .zshenv
+  const zshEnv = `_CDW_ORIG_ZDOTDIR="\${CDW_ORIGINAL_ZDOTDIR:-$HOME}"
+if [ -n "$CDW_ORIGINAL_ZDOTDIR" ]; then
+  ZDOTDIR="$CDW_ORIGINAL_ZDOTDIR"
+else
+  unset ZDOTDIR
+fi
+[ -f "$_CDW_ORIG_ZDOTDIR/.zshenv" ] && source "$_CDW_ORIG_ZDOTDIR/.zshenv"
+`
+  writeFileSync(join(dir, '.zshenv'), zshEnv)
+
+  // .zshrc sources user's .zshrc then sets up OSC 7 reporting
+  const zshRc = `[ -f "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc" ] && source "\${_CDW_ORIG_ZDOTDIR:-$HOME}/.zshrc"
+__cdw_report_cwd() { printf '\\e]7;file://%s%s\\a' "$HOST" "$PWD"; }
+precmd_functions+=(__cdw_report_cwd)
+`
+  writeFileSync(join(dir, '.zshrc'), zshRc)
+}
+
+function getShellIntegration(shellPath: string): ShellIntegration {
+  const name = getShellName(shellPath).toLowerCase()
+  const dir = getIntegrationDir()
+
+  switch (name) {
+    case 'bash':
+      return {
+        args: ['--rcfile', join(dir, 'bash-integration.bash')],
+        env: {},
+      }
+    case 'zsh':
+      return {
+        args: [],
+        env: {
+          CDW_ORIGINAL_ZDOTDIR: process.env.ZDOTDIR || '',
+          ZDOTDIR: dir,
+        },
+      }
+    case 'fish':
+      return {
+        args: [
+          '-C',
+          `function __cdw_report_cwd --on-event fish_prompt; printf '\\e]7;file://%s%s\\a' (hostname) "$PWD"; end`,
+        ],
+        env: {},
+      }
+    default:
+      return { args: [], env: {} }
+  }
+}
+
 export class PtyManager {
   private instances: Map<string, PtyInstance> = new Map()
   // Cache CWD results to avoid repeated lsof calls
   private cwdCache: Map<string, CwdCache> = new Map()
   private static CWD_CACHE_TTL = 2000 // 2 seconds
+  private integrationReady = false
+
+  private ensureIntegration(): void {
+    if (this.integrationReady) return
+    try {
+      ensureShellIntegrationScripts()
+      this.integrationReady = true
+    } catch (err) {
+      console.error('Failed to write shell integration scripts:', err)
+    }
+  }
 
   /**
    * Spawn a new PTY for a session.
@@ -48,11 +135,17 @@ export class PtyManager {
       throw new Error(`Directory does not exist: ${cwd}`)
     }
 
+    // Set up shell integration for OSC 7 CWD reporting
+    this.ensureIntegration()
+    const integration = this.integrationReady
+      ? getShellIntegration(shellInfo.path)
+      : { args: [] as string[], env: {} as Record<string, string> }
+
     console.log(`Spawning PTY: shell=${shellInfo.path}, cwd=${cwd}`)
 
     let ptyProcess: pty.IPty
     try {
-      ptyProcess = pty.spawn(shellInfo.path, [], {
+      ptyProcess = pty.spawn(shellInfo.path, integration.args, {
         name: 'xterm-256color',
         cols: 80,
         rows: 24,
@@ -61,6 +154,7 @@ export class PtyManager {
           ...process.env,
           TERM: 'xterm-256color',
           COLORTERM: 'truecolor',
+          ...integration.env,
         },
         useConpty: isWindows,
       })
@@ -76,6 +170,18 @@ export class PtyManager {
 
     // Set up event handlers
     ptyProcess.onData((data) => {
+      // Parse OSC 7 escape sequences for instant CWD detection
+      // TODO: buffer partial sequences split across chunks (extremely rare for short OSC 7)
+      const match = data.match(OSC7_REGEX)
+      if (match) {
+        try {
+          const newCwd = decodeURIComponent(match[1])
+          this.cwdCache.set(sessionId, { cwd: newCwd, timestamp: Date.now() })
+          instance.callbacks.onCwdChanged?.(newCwd)
+        } catch {
+          // Ignore malformed URIs
+        }
+      }
       instance.callbacks.onData(data)
     })
 

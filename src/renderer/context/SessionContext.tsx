@@ -202,6 +202,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [sessions.length])
 
+  // Subscribe to instant CWD updates via OSC 7 shell integration
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.pty.onCwdChanged(async (sessionId, cwd) => {
+      // Update CWD immediately
+      setSessionCwds((prev) => {
+        if (prev.get(sessionId) === cwd) return prev
+        const next = new Map(prev)
+        next.set(sessionId, cwd)
+        return next
+      })
+
+      // Resolve git root and update session name
+      try {
+        const root = await window.electronAPI.git.findGitRoot(cwd)
+        setSessionGitRoots((prev) => {
+          if (prev.get(sessionId) === root) return prev
+          const next = new Map(prev)
+          next.set(sessionId, root)
+          return next
+        })
+
+        let branch: string | null = null
+        if (root) {
+          branch = await window.electronAPI.git.getCurrentBranch(root)
+        }
+        const newName = getSessionName(branch, cwd)
+
+        setSessions((prev) =>
+          prev.map((s) => (s.id === sessionId && s.name !== newName ? { ...s, name: newName } : s))
+        )
+      } catch {
+        // Ignore errors from git lookups
+      }
+    })
+
+    return unsubscribe
+  }, [])
+
   const contextValue = useMemo(() => ({
     sessions,
     activeSessionId,
