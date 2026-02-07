@@ -12,6 +12,9 @@ const alias = {
   '@shared': resolve(__dirname, 'src/shared'),
 }
 
+// Support git-worktree setups where dependencies are installed in the parent repo.
+const parentNodeModules = resolve(__dirname, '..', '..', 'node_modules')
+
 export default defineConfig({
   plugins: [
     react(),
@@ -47,7 +50,15 @@ export default defineConfig({
     renderer(),
   ],
   resolve: { alias },
-  server: { host: 'localhost' },
+  server: {
+    host: 'localhost',
+    fs: {
+      allow: [
+        resolve(__dirname),
+        parentNodeModules,
+      ],
+    },
+  },
   build: {
     outDir: 'dist/renderer',
     sourcemap: false,

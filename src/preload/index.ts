@@ -5,11 +5,15 @@ import {
   FS_CHANNELS,
   GRAMMAR_CHANNELS,
   TERMINAL_MENU_CHANNELS,
+  AUTOMATION_CHANNELS,
   PtySpawnOptions,
   PtyResizeOptions,
   ChangedFile,
   DiffContent,
   FileChangeEvent,
+  AutomationBootstrapRequest,
+  AutomationBootstrapResult,
+  AutomationStatus,
   ElectronAPI,
 } from '@shared/types'
 
@@ -129,6 +133,28 @@ const electronAPI: ElectronAPI = {
     quit: () => ipcRenderer.send('app:quit'),
     getPosition: () => ipcRenderer.invoke('window:getPosition'),
     setPosition: (x: number, y: number) => ipcRenderer.send('window:setPosition', x, y),
+  },
+
+  automation: {
+    onBootstrapRequest: (callback: (request: AutomationBootstrapRequest) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, request: AutomationBootstrapRequest) => {
+        callback(request)
+      }
+      ipcRenderer.on(AUTOMATION_CHANNELS.BOOTSTRAP_REQUEST, listener)
+      return () => ipcRenderer.removeListener(AUTOMATION_CHANNELS.BOOTSTRAP_REQUEST, listener)
+    },
+
+    sendBootstrapResult: (result: AutomationBootstrapResult) => {
+      ipcRenderer.send(AUTOMATION_CHANNELS.BOOTSTRAP_RESULT, result)
+    },
+
+    notifyRendererReady: () => {
+      ipcRenderer.send(AUTOMATION_CHANNELS.RENDERER_READY)
+    },
+
+    getStatus: (): Promise<AutomationStatus> => {
+      return ipcRenderer.invoke(AUTOMATION_CHANNELS.GET_STATUS)
+    },
   },
 }
 

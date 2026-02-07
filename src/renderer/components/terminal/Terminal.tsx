@@ -4,6 +4,7 @@ import { useTerminal } from '../../hooks/useTerminal'
 interface TerminalProps {
   sessionId: string
   cwd: string
+  bootstrapCommands?: string[]
   onExit?: () => void
   ref?: Ref<TerminalHandle>
 }
@@ -13,8 +14,8 @@ export interface TerminalHandle {
 }
 
 export const Terminal = memo(
-  function Terminal({ sessionId, cwd, onExit, ref }: TerminalProps) {
-    const { terminalRef, focus } = useTerminal({ sessionId, cwd, onExit })
+  function Terminal({ sessionId, cwd, bootstrapCommands, onExit, ref }: TerminalProps) {
+    const { terminalRef, focus } = useTerminal({ sessionId, cwd, bootstrapCommands, onExit })
 
     useImperativeHandle(ref, () => ({
       focus,

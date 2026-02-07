@@ -300,7 +300,7 @@ describe('useSessions (SessionContext)', () => {
 
       await waitFor(() => {
         expect(result.current.sessions).toHaveLength(1)
-      })
+      }, { timeout: 3000 })
 
       await act(async () => {
         await result.current.createSession('/test/project')

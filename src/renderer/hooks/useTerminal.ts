@@ -9,6 +9,7 @@ import '@xterm/xterm/css/xterm.css'
 interface UseTerminalOptions {
   sessionId: string
   cwd: string
+  bootstrapCommands?: string[]
   onExit?: () => void
 }
 
@@ -42,7 +43,7 @@ const TERMINAL_THEME = {
   brightWhite: '#fafafa',
 }
 
-export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): UseTerminalReturn {
+export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTerminalOptions): UseTerminalReturn {
   const terminalRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -246,6 +247,12 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
         // Resize to actual dimensions
         window.electronAPI.pty.resize({ sessionId, cols, rows })
 
+        if (bootstrapCommands && bootstrapCommands.length > 0) {
+          for (const command of bootstrapCommands) {
+            window.electronAPI.pty.input(sessionId, `${command}\r`)
+          }
+        }
+
         // Try to fit after a short delay
         setTimeout(() => {
           if (!mounted || !fitAddon) return
@@ -303,7 +310,7 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
       xtermRef.current = null
       fitAddonRef.current = null
     }
-  }, [sessionId, cwd, fitTerminal])
+  }, [sessionId, cwd, bootstrapCommands, fitTerminal])
 
   return { terminalRef, focus }
 }

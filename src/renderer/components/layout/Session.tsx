@@ -6,6 +6,7 @@ import { DiffPanel } from '../diff/DiffPanel'
 interface SessionProps {
   sessionId: string
   cwd: string
+  bootstrapCommands?: string[]
   diffCwd: string
   gitRootHint: string | null | undefined
   isActive?: boolean
@@ -18,7 +19,7 @@ export interface SessionHandle {
 }
 
 export const Session = memo(
-  function Session({ sessionId, cwd, diffCwd, gitRootHint, isActive, onCloseSession, ref }: SessionProps) {
+  function Session({ sessionId, cwd, bootstrapCommands, diffCwd, gitRootHint, isActive, onCloseSession, ref }: SessionProps) {
   const terminalRef = useRef<TerminalHandle>(null)
 
   const handleExit = useCallback(() => {
@@ -47,7 +48,15 @@ export const Session = memo(
   return (
     <div className="h-full">
       <ResizableSplit
-        left={<Terminal ref={terminalRef} sessionId={sessionId} cwd={cwd} onExit={handleExit} />}
+        left={(
+          <Terminal
+            ref={terminalRef}
+            sessionId={sessionId}
+            cwd={cwd}
+            bootstrapCommands={bootstrapCommands}
+            onExit={handleExit}
+          />
+        )}
         right={
           <DiffPanel
             sessionId={sessionId}

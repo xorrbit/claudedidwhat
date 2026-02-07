@@ -7,6 +7,7 @@ export const MAX_SESSION_ID_LENGTH = 256
 export const MAX_PTY_DATA_LENGTH = 1_048_576 // 1 MB — handles large pastes
 export const MIN_TERMINAL_DIMENSION = 1
 export const MAX_TERMINAL_DIMENSION = 500
+export const MAX_AUTOMATION_ERROR_LENGTH = 2048
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]+$/
 
 export function assertString(value: unknown, name: string, maxLength = MAX_PATH_LENGTH): asserts value is string {
@@ -74,4 +75,28 @@ export function assertPtyResizeOptions(value: unknown): asserts value is { sessi
   assertSessionId(obj.sessionId, 'sessionId')
   assertPositiveInt(obj.cols, 'cols', MIN_TERMINAL_DIMENSION, MAX_TERMINAL_DIMENSION)
   assertPositiveInt(obj.rows, 'rows', MIN_TERMINAL_DIMENSION, MAX_TERMINAL_DIMENSION)
+}
+
+export function assertAutomationBootstrapResult(value: unknown): asserts value is {
+  requestId: string
+  ok: boolean
+  sessionId?: string
+  error?: string
+} {
+  if (typeof value !== 'object' || value === null) {
+    throw new TypeError('AutomationBootstrapResult must be an object')
+  }
+
+  const obj = value as Record<string, unknown>
+  assertSessionId(obj.requestId, 'requestId')
+  assertBoolean(obj.ok, 'ok')
+
+  if (obj.ok) {
+    assertSessionId(obj.sessionId, 'sessionId')
+    if (obj.error !== undefined) {
+      throw new TypeError('error must be omitted when ok is true')
+    }
+  } else {
+    assertNonEmptyString(obj.error, 'error', MAX_AUTOMATION_ERROR_LENGTH)
+  }
 }

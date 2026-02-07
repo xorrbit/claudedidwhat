@@ -10,6 +10,7 @@ import {
   shell,
 } from 'electron'
 import { execFile } from 'child_process'
+import { randomUUID } from 'crypto'
 import { readFileSync } from 'fs'
 import { platform } from 'os'
 
@@ -29,12 +30,18 @@ import { registerPtyHandlers, ptyManager } from './ipc/pty'
 import { registerGitHandlers } from './ipc/git'
 import { registerFsHandlers, fileWatcher } from './ipc/fs'
 import { registerGrammarHandlers } from './ipc/grammar'
-import { TERMINAL_MENU_CHANNELS } from '@shared/types'
+import { AUTOMATION_CHANNELS, AutomationBootstrapResult, TERMINAL_MENU_CHANNELS } from '@shared/types'
 import { createAppMenu } from './menu'
 import { debugLog } from './logger'
 import { validateIpcSender } from './security/validate-sender'
-import { assertFiniteNumber, assertBoolean, assertNonEmptyString } from './security/validate-ipc-params'
+import {
+  assertAutomationBootstrapResult,
+  assertFiniteNumber,
+  assertBoolean,
+  assertNonEmptyString,
+} from './security/validate-ipc-params'
 import { isTrustedRendererUrl } from './security/trusted-renderer'
+import { AutomationApiService } from './services/automation-api'
 
 function isWSL(): boolean {
   if (platform() !== 'linux') return false
@@ -46,6 +53,51 @@ function isWSL(): boolean {
 }
 
 let mainWindow: BrowserWindow | null = null
+let automationApiService: AutomationApiService | null = null
+let rendererReady = false
+
+interface PendingAutomationRequest {
+  resolve: (sessionId: string) => void
+  reject: (error: Error) => void
+  timeout: ReturnType<typeof setTimeout>
+}
+
+const pendingAutomationRequests = new Map<string, PendingAutomationRequest>()
+
+function rejectPendingAutomationRequests(reason: string): void {
+  for (const [requestId, pending] of pendingAutomationRequests) {
+    clearTimeout(pending.timeout)
+    pending.reject(new Error(reason))
+    pendingAutomationRequests.delete(requestId)
+  }
+}
+
+function requestRendererBootstrap(cwd: string, commands: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!rendererReady) {
+      reject(new Error('Renderer is not ready for automation requests'))
+      return
+    }
+    if (!mainWindow) {
+      reject(new Error('Main window is not available'))
+      return
+    }
+
+    const requestId = randomUUID()
+    const timeout = setTimeout(() => {
+      pendingAutomationRequests.delete(requestId)
+      reject(new Error('Timed out waiting for renderer automation response'))
+    }, 15_000)
+    timeout.unref()
+
+    pendingAutomationRequests.set(requestId, { resolve, reject, timeout })
+    sendToRenderer(AUTOMATION_CHANNELS.BOOTSTRAP_REQUEST, {
+      requestId,
+      cwd,
+      commands,
+    })
+  })
+}
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -100,7 +152,9 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    rejectPendingAutomationRequests('Main window was closed')
     mainWindow = null
+    rendererReady = false
   })
 }
 
@@ -112,6 +166,40 @@ function registerIpcHandlers() {
   registerFsHandlers(ipcMain)
   registerGrammarHandlers(ipcMain)
   debugLog('IPC handlers registered')
+
+  ipcMain.on(AUTOMATION_CHANNELS.RENDERER_READY, (event) => {
+    if (!validateIpcSender(event)) return
+    rendererReady = true
+  })
+
+  ipcMain.on(AUTOMATION_CHANNELS.BOOTSTRAP_RESULT, (event, result: AutomationBootstrapResult) => {
+    if (!validateIpcSender(event)) return
+
+    try {
+      assertAutomationBootstrapResult(result)
+    } catch {
+      return
+    }
+
+    const pending = pendingAutomationRequests.get(result.requestId)
+    if (!pending) return
+
+    clearTimeout(pending.timeout)
+    pendingAutomationRequests.delete(result.requestId)
+
+    if (result.ok && result.sessionId) {
+      pending.resolve(result.sessionId)
+      return
+    }
+
+    pending.reject(new Error(result.error || 'Renderer rejected automation request'))
+  })
+
+  ipcMain.handle(AUTOMATION_CHANNELS.GET_STATUS, (event) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
+    if (!automationApiService) return { enabled: false }
+    return automationApiService.getStatus()
+  })
 
   // Directory selection dialog
   ipcMain.handle('fs:selectDirectory', async (event) => {
@@ -217,7 +305,7 @@ function registerIpcHandlers() {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   debugLog('App ready, initializing...')
 
   // Set Content-Security-Policy in production only.
@@ -246,6 +334,15 @@ app.whenReady().then(() => {
 
   createAppMenu()
   registerIpcHandlers()
+
+  automationApiService = new AutomationApiService(app.getPath('userData'), async ({ cwd, commands }) => {
+    const sessionId = await requestRendererBootstrap(cwd, commands)
+    return { sessionId }
+  })
+  await automationApiService.start().catch((error) => {
+    console.error('Failed to start automation API:', error)
+  })
+
   createWindow()
   debugLog('Window created')
 
@@ -264,8 +361,14 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  rejectPendingAutomationRequests('Application is quitting')
   ptyManager.killAll()
   fileWatcher.unwatchAll()
+  if (automationApiService) {
+    void automationApiService.stop().catch((error) => {
+      console.error('Failed to stop automation API:', error)
+    })
+  }
 })
 
 // Send events to renderer

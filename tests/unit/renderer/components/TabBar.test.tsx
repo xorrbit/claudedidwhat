@@ -230,4 +230,37 @@ describe('TabBar', () => {
     const waitingDot = container.querySelector('.animate-tab-waiting')
     expect(waitingDot).toBeInTheDocument()
   })
+
+  it('shows automation API pill when automation is enabled', () => {
+    render(
+      <TabBar
+        sessions={mockSessions}
+        activeSessionId="1"
+        waitingSessionIds={new Set()}
+        automationEnabled
+        onTabSelect={vi.fn()}
+        onTabClose={vi.fn()}
+        onNewTab={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('API')).toBeInTheDocument()
+    expect(screen.getByTitle('Automation API enabled')).toBeInTheDocument()
+  })
+
+  it('hides automation API pill when automation is disabled', () => {
+    render(
+      <TabBar
+        sessions={mockSessions}
+        activeSessionId="1"
+        waitingSessionIds={new Set()}
+        automationEnabled={false}
+        onTabSelect={vi.fn()}
+        onTabClose={vi.fn()}
+        onNewTab={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByText('API')).not.toBeInTheDocument()
+  })
 })

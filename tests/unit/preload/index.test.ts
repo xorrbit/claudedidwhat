@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  AUTOMATION_CHANNELS,
   FS_CHANNELS,
   GIT_CHANNELS,
   GRAMMAR_CHANNELS,
@@ -78,6 +79,9 @@ describe('preload electronAPI bridge', () => {
     api.window.quit()
     await api.window.getPosition()
     api.window.setPosition(10, 20)
+    api.automation.sendBootstrapResult({ requestId: 'session-1', ok: true, sessionId: 'session-2' })
+    api.automation.notifyRendererReady()
+    await api.automation.getStatus()
 
     expect(mockInvoke).toHaveBeenCalledWith(PTY_CHANNELS.SPAWN, spawnOptions)
     expect(mockSend).toHaveBeenCalledWith(PTY_CHANNELS.INPUT, 's1', 'echo hi')
@@ -109,6 +113,12 @@ describe('preload electronAPI bridge', () => {
     expect(mockSend).toHaveBeenCalledWith('app:quit')
     expect(mockInvoke).toHaveBeenCalledWith('window:getPosition')
     expect(mockSend).toHaveBeenCalledWith('window:setPosition', 10, 20)
+    expect(mockSend).toHaveBeenCalledWith(
+      AUTOMATION_CHANNELS.BOOTSTRAP_RESULT,
+      { requestId: 'session-1', ok: true, sessionId: 'session-2' }
+    )
+    expect(mockSend).toHaveBeenCalledWith(AUTOMATION_CHANNELS.RENDERER_READY)
+    expect(mockInvoke).toHaveBeenCalledWith(AUTOMATION_CHANNELS.GET_STATUS)
   })
 
   it('registers listeners and returns working unsubscribe functions', async () => {
@@ -119,12 +129,14 @@ describe('preload electronAPI bridge', () => {
     const cwdCb = vi.fn()
     const fileChangedCb = vi.fn()
     const contextMenuCb = vi.fn()
+    const bootstrapCb = vi.fn()
 
     let dataListener: (...args: any[]) => void = () => {}
     let exitListener: (...args: any[]) => void = () => {}
     let cwdListener: (...args: any[]) => void = () => {}
     let fileListener: (...args: any[]) => void = () => {}
     let menuListener: (...args: any[]) => void = () => {}
+    let bootstrapListener: (...args: any[]) => void = () => {}
 
     mockOn.mockImplementation((channel: string, listener: (...args: any[]) => void) => {
       if (channel === PTY_CHANNELS.DATA) dataListener = listener
@@ -132,6 +144,7 @@ describe('preload electronAPI bridge', () => {
       if (channel === PTY_CHANNELS.CWD_CHANGED) cwdListener = listener
       if (channel === FS_CHANNELS.FILE_CHANGED) fileListener = listener
       if (channel === TERMINAL_MENU_CHANNELS.ACTION) menuListener = listener
+      if (channel === AUTOMATION_CHANNELS.BOOTSTRAP_REQUEST) bootstrapListener = listener
     })
 
     const unsubscribeData = api.pty.onData(ptyDataCb)
@@ -139,29 +152,38 @@ describe('preload electronAPI bridge', () => {
     const unsubscribeCwd = api.pty.onCwdChanged(cwdCb)
     const unsubscribeFile = api.fs.onFileChanged(fileChangedCb)
     const unsubscribeMenu = api.terminal.onContextMenuAction(contextMenuCb)
+    const unsubscribeBootstrap = api.automation.onBootstrapRequest(bootstrapCb)
 
     dataListener({}, 's1', 'output')
     exitListener({}, 's1', 130)
     cwdListener({}, 's1', '/repo/new')
     fileListener({}, { sessionId: 's1', type: 'change', path: 'src/a.ts' })
     menuListener({}, 'copy')
+    bootstrapListener({}, { requestId: 'session-1', cwd: '/repo', commands: ['echo hello'] })
 
     expect(ptyDataCb).toHaveBeenCalledWith('s1', 'output')
     expect(ptyExitCb).toHaveBeenCalledWith('s1', 130)
     expect(cwdCb).toHaveBeenCalledWith('s1', '/repo/new')
     expect(fileChangedCb).toHaveBeenCalledWith({ sessionId: 's1', type: 'change', path: 'src/a.ts' })
     expect(contextMenuCb).toHaveBeenCalledWith('copy')
+    expect(bootstrapCb).toHaveBeenCalledWith({
+      requestId: 'session-1',
+      cwd: '/repo',
+      commands: ['echo hello'],
+    })
 
     unsubscribeData()
     unsubscribeExit()
     unsubscribeCwd()
     unsubscribeFile()
     unsubscribeMenu()
+    unsubscribeBootstrap()
 
     expect(mockRemoveListener).toHaveBeenCalledWith(PTY_CHANNELS.DATA, dataListener)
     expect(mockRemoveListener).toHaveBeenCalledWith(PTY_CHANNELS.EXIT, exitListener)
     expect(mockRemoveListener).toHaveBeenCalledWith(PTY_CHANNELS.CWD_CHANGED, cwdListener)
     expect(mockRemoveListener).toHaveBeenCalledWith(FS_CHANNELS.FILE_CHANGED, fileListener)
     expect(mockRemoveListener).toHaveBeenCalledWith(TERMINAL_MENU_CHANNELS.ACTION, menuListener)
+    expect(mockRemoveListener).toHaveBeenCalledWith(AUTOMATION_CHANNELS.BOOTSTRAP_REQUEST, bootstrapListener)
   })
 })

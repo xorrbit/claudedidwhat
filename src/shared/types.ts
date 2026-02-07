@@ -3,6 +3,7 @@ export interface Session {
   id: string
   cwd: string
   name: string
+  bootstrapCommands?: string[]
 }
 
 // PTY IPC channels
@@ -74,6 +75,31 @@ export const GRAMMAR_CHANNELS = {
   GET_ONIG_WASM: 'grammar:getOnigWasm',
 } as const
 
+// Automation IPC channels
+export const AUTOMATION_CHANNELS = {
+  BOOTSTRAP_REQUEST: 'automation:bootstrapRequest',
+  BOOTSTRAP_RESULT: 'automation:bootstrapResult',
+  RENDERER_READY: 'automation:rendererReady',
+  GET_STATUS: 'automation:getStatus',
+} as const
+
+export interface AutomationBootstrapRequest {
+  requestId: string
+  cwd: string
+  commands: string[]
+}
+
+export interface AutomationBootstrapResult {
+  requestId: string
+  ok: boolean
+  sessionId?: string
+  error?: string
+}
+
+export interface AutomationStatus {
+  enabled: boolean
+}
+
 // Grammar types
 export interface GrammarContribution {
   scopeName: string        // e.g. "source.python"
@@ -141,6 +167,12 @@ export interface ElectronAPI {
     quit: () => void
     getPosition: () => Promise<{ x: number; y: number }>
     setPosition: (x: number, y: number) => void
+  }
+  automation: {
+    onBootstrapRequest: (callback: (request: AutomationBootstrapRequest) => void) => () => void
+    sendBootstrapResult: (result: AutomationBootstrapResult) => void
+    notifyRendererReady: () => void
+    getStatus: () => Promise<AutomationStatus>
   }
 }
 

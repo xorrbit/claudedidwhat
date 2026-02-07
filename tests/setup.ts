@@ -72,6 +72,12 @@ const mockElectronAPI = {
     getPosition: vi.fn().mockResolvedValue({ x: 100, y: 100 }),
     setPosition: vi.fn(),
   },
+  automation: {
+    onBootstrapRequest: vi.fn(() => () => {}),
+    sendBootstrapResult: vi.fn(),
+    notifyRendererReady: vi.fn(),
+    getStatus: vi.fn().mockResolvedValue({ enabled: false }),
+  },
 }
 
 Object.defineProperty(window, 'electronAPI', {

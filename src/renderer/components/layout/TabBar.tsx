@@ -7,6 +7,7 @@ interface TabBarProps {
   sessions: Session[]
   activeSessionId: string | null
   waitingSessionIds: Set<string>
+  automationEnabled?: boolean
   onTabSelect: (id: string) => void
   onTabClose: (id: string) => void
   onNewTab: () => void
@@ -16,6 +17,7 @@ export const TabBar = memo(function TabBar({
   sessions,
   activeSessionId,
   waitingSessionIds,
+  automationEnabled = false,
   onTabSelect,
   onTabClose,
   onNewTab,
@@ -141,6 +143,16 @@ export const TabBar = memo(function TabBar({
           <span className="text-[9px] text-obsidian-text-muted/50 leading-tight">AI slop by Andrew Orr</span>
         </div>
       </div>
+
+      {automationEnabled && (
+        <div
+          className="mx-1 mt-2 h-6 px-2.5 rounded-full border border-obsidian-accent/40 bg-obsidian-accent-subtle text-obsidian-accent text-[10px] font-semibold tracking-wide uppercase flex items-center gap-1.5 select-none app-drag"
+          title="Automation API enabled"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-obsidian-accent animate-glow-pulse" />
+          API
+        </div>
+      )}
 
       {/* Tabs container */}
       <div className="flex-1 flex items-end overflow-x-auto scrollbar-thin gap-0.5 pt-2" onWheel={handleTabsWheel}>

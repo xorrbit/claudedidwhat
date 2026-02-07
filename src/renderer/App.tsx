@@ -21,6 +21,7 @@ function AppContent() {
   const waitingIds = useInputWaiting(sessions, activeSessionId)
 
   const [showHelp, setShowHelp] = useState(false)
+  const [automationEnabled, setAutomationEnabled] = useState(false)
   const sessionRefs = useRef<Map<string, SessionHandle>>(new Map())
   // Stable ref callbacks — one per session, cached so Session memo isn't broken
   const refCallbacks = useRef<Map<string, (handle: SessionHandle | null) => void>>(new Map())
@@ -90,6 +91,20 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleEscape, true)
   }, [showHelp])
 
+  useEffect(() => {
+    let cancelled = false
+    window.electronAPI.automation.getStatus()
+      .then((status) => {
+        if (!cancelled) setAutomationEnabled(status.enabled)
+      })
+      .catch(() => {
+        if (!cancelled) setAutomationEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   useKeyboardShortcuts({
     onNewTab: createSession,
     onCloseTab: handleCloseTab,
@@ -109,6 +124,7 @@ function AppContent() {
         sessions={sessions}
         activeSessionId={activeSessionId}
         waitingSessionIds={waitingIds}
+        automationEnabled={automationEnabled}
         onTabSelect={setActiveSession}
         onTabClose={closeSession}
         onNewTab={createSession}
@@ -124,6 +140,7 @@ function AppContent() {
                 ref={getRefCallback(session.id)}
                 sessionId={session.id}
                 cwd={session.cwd}
+                bootstrapCommands={session.bootstrapCommands}
                 diffCwd={sessionCwds.get(session.id) || session.cwd}
                 gitRootHint={sessionGitRoots.get(session.id)}
                 isActive={session.id === activeSessionId}

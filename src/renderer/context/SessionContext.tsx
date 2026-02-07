@@ -1,12 +1,12 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, ReactNode } from 'react'
-import { Session } from '@shared/types'
+import { Session, AutomationBootstrapRequest } from '@shared/types'
 
 interface SessionContextType {
   sessions: Session[]
   activeSessionId: string | null
   sessionCwds: Map<string, string>  // Track current CWD per session
   sessionGitRoots: Map<string, string | null>  // Track git root per session
-  createSession: (cwd?: string) => Promise<void>
+  createSession: (cwd?: string, bootstrapCommands?: string[]) => Promise<string>
   closeSession: (id: string) => void
   setActiveSession: (id: string) => void
 }
@@ -62,7 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   activeSessionIdRef.current = activeSessionId
   sessionsRef.current = sessions
 
-  const createSession = useCallback(async (cwd?: string) => {
+  const createSession = useCallback(async (cwd?: string, bootstrapCommands?: string[]) => {
     // Use provided cwd or default to home directory
     let sessionCwd = cwd || await getDefaultDirectory()
 
@@ -83,10 +83,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       id: generateId(),
       cwd: sessionCwd,
       name: getSessionName(branch, sessionCwd),
+      bootstrapCommands,
     }
 
     setSessions((prev) => [...prev, newSession])
     setActiveSessionId(newSession.id)
+    return newSession.id
   }, [])
 
   const closeSession = useCallback((id: string) => {
@@ -115,9 +117,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!initialSessionCreated.current) {
       initialSessionCreated.current = true
-      createSession()
+      void createSession()
     }
   }, [createSession])
+
+  useEffect(() => {
+    window.electronAPI.automation.notifyRendererReady()
+  }, [])
 
   // Poll for CWD/branch changes and update session names
   useEffect(() => {
@@ -245,6 +251,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     return unsubscribe
   }, [])
+
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.automation.onBootstrapRequest(async (request: AutomationBootstrapRequest) => {
+      const { requestId, cwd, commands } = request
+
+      try {
+        const sessionId = await createSession(cwd, commands)
+        window.electronAPI.automation.sendBootstrapResult({
+          requestId,
+          ok: true,
+          sessionId,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to create session'
+        window.electronAPI.automation.sendBootstrapResult({
+          requestId,
+          ok: false,
+          error: message,
+        })
+      }
+    })
+
+    return unsubscribe
+  }, [createSession])
 
   const contextValue = useMemo(() => ({
     sessions,

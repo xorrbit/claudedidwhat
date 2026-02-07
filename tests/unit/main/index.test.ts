@@ -33,6 +33,9 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
     nativeImageCreateFromPath: vi.fn(),
     menuPopup: vi.fn(),
     appQuit: vi.fn(),
+    automationStart: vi.fn().mockResolvedValue(undefined),
+    automationStop: vi.fn().mockResolvedValue(undefined),
+    appGetPath: vi.fn(() => '/tmp/cdw-test-user-data'),
   }
 
   function makeWindow(options: any) {
@@ -93,6 +96,9 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
     mocks.readFileSync.mockImplementation(() => state.procVersion)
     mocks.shellOpenExternal.mockResolvedValue(undefined)
     mocks.dialogShowOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp'] })
+    mocks.automationStart.mockResolvedValue(undefined)
+    mocks.automationStop.mockResolvedValue(undefined)
+    mocks.appGetPath.mockReturnValue('/tmp/cdw-test-user-data')
   }
 
   resetState()
@@ -134,6 +140,13 @@ vi.mock('@main/security/trusted-renderer', () => ({
   isTrustedRendererUrl: mocks.isTrustedRendererUrl,
 }))
 
+vi.mock('@main/services/automation-api', () => ({
+  AutomationApiService: vi.fn().mockImplementation(function MockAutomationApiService(this: any) {
+    this.start = mocks.automationStart
+    this.stop = mocks.automationStop
+  }),
+}))
+
 vi.mock('child_process', () => ({
   execFile: mocks.execFile,
   default: { execFile: mocks.execFile },
@@ -165,6 +178,7 @@ vi.mock('electron', () => {
         state.appEvents.set(event, handler)
       }),
       quit: mocks.appQuit,
+      getPath: mocks.appGetPath,
       dock: {
         setIcon: vi.fn(),
       },
@@ -367,10 +381,12 @@ describe('main/index', () => {
 
   it('runs before-quit cleanup hooks', async () => {
     await importMain()
+    await resolveWhenReady()
 
     state.appEvents.get('before-quit')?.()
     expect(mocks.ptyKillAll).toHaveBeenCalledTimes(1)
     expect(mocks.watcherUnwatchAll).toHaveBeenCalledTimes(1)
+    expect(mocks.automationStop).toHaveBeenCalledTimes(1)
   })
 
   it('sendToRenderer no-ops without a window and sends once window exists', async () => {
