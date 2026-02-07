@@ -16,7 +16,7 @@
     "target": [
       {
         "target": "dmg",
-        "arch": ["universal"]
+        "arch": ["x64", "arm64"]
       }
     ],
     "category": "public.app-category.developer-tools",
@@ -24,8 +24,7 @@
     "identity": null,
     "hardenedRuntime": true,
     "entitlements": "resources/entitlements.mac.plist",
-    "entitlementsInherit": "resources/entitlements.mac.plist",
-    "x64ArchFiles": "Contents/Resources/app.asar.unpacked/node_modules/node-pty/bin/darwin-x64-*/**"
+    "entitlementsInherit": "resources/entitlements.mac.plist"
   },
   "win": {
     "target": [
