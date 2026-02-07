@@ -51,12 +51,44 @@ async function createFixtureHome(profile: FixtureProfile): Promise<string> {
   return base
 }
 
+function getElectronRuntimePrereqError(): Error | null {
+  try {
+    const cliPath = require.resolve('electron/cli.js')
+
+    const result = spawnSync(process.execPath, [cliPath, '--version'], {
+      encoding: 'utf-8',
+      env: {
+        ...process.env,
+        ELECTRON_DISABLE_SANDBOX: '1',
+      },
+    })
+
+    if (result.error) {
+      return new Error(`Electron runtime check failed: ${result.error.message}`)
+    }
+    if (result.status !== 0) {
+      const details = (result.stderr || result.stdout || '').trim()
+      return new Error(
+        `Electron runtime is not launchable in this environment (${details || `exit code ${result.status}`})`
+      )
+    }
+    return null
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return new Error(`Unable to resolve Electron runtime: ${message}`)
+  }
+}
+
 function getLaunchPrereqError(mainPath: string): Error | null {
   if (!isTruthy(process.env.ELECTRON_TEST)) {
     return new Error('Set ELECTRON_TEST=1 to run Electron E2E tests')
   }
   if (!existsSync(mainPath)) {
     return new Error(`Electron build output is missing at ${mainPath}. Run "npm run build" first.`)
+  }
+  const runtimeError = getElectronRuntimePrereqError()
+  if (runtimeError) {
+    return runtimeError
   }
   return null
 }

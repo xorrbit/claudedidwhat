@@ -44,7 +44,8 @@ Document current test coverage gaps and define specific tests to add. This file 
 - In progress:
   - `2026-02-07` verification run:
     - `npm run test:unit` passed (`36` files, `481` tests).
-    - `npm run test:e2e` currently skips locally when launch prerequisites are unavailable (expected outside configured Electron E2E profile).
+    - `ELECTRON_TEST=1 npm run test:e2e` skips locally when launch prerequisites are unavailable (expected outside configured Electron E2E profile).
+    - `CI=1 ELECTRON_TEST=1` now fails fast with explicit prerequisite diagnostics from `tests/e2e/electron.ts` (example in this environment: `spawnSync ... EPERM`), rather than a generic launch failure.
   - `2026-02-07` coverage follow-up:
     - Updated `vitest.config.ts` coverage filters to include `src/main/**/*` (removed exclusion).
     - Added domain thresholds:
@@ -59,6 +60,7 @@ Document current test coverage gaps and define specific tests to add. This file 
 - Unit tests are concentrated in renderer hooks/components and main service classes.
 - Main-process startup, IPC wiring modules, preload bridge, and security helpers now have direct unit coverage.
 - E2E harness now supports deterministic fixture home directories and strict CI prereq failures; local non-E2E runs skip by design when prerequisites are not met.
+- E2E harness now also performs a preflight Electron runtime check for clearer launchability diagnostics.
 - `vitest` coverage now includes `src/main/**/*`, applies domain-specific thresholds, and is verified with `@vitest/coverage-v8`.
 
 ## Priority Model
