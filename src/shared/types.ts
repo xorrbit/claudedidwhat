@@ -154,7 +154,7 @@ export interface ElectronAPI {
     getOnigWasm: () => Promise<Uint8Array | null>
   }
   terminal: {
-    showContextMenu: (hasSelection: boolean) => void
+    showContextMenu: (hasSelection: boolean, selectionText: string) => void
     onContextMenuAction: (callback: (action: string) => void) => () => void
   }
   shell: {

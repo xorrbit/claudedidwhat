@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   ipcMain,
   Menu,
   dialog,
@@ -259,7 +260,7 @@ function registerIpcHandlers() {
   })
 
   // Terminal context menu
-  ipcMain.on(TERMINAL_MENU_CHANNELS.SHOW, (event, hasSelection: boolean) => {
+  ipcMain.on(TERMINAL_MENU_CHANNELS.SHOW, (event, hasSelection: boolean, selectionText: string) => {
     if (!validateIpcSender(event)) return
     try {
       assertBoolean(hasSelection, 'hasSelection')
@@ -270,7 +271,11 @@ function registerIpcHandlers() {
       {
         label: 'Copy',
         enabled: hasSelection,
-        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, 'copy'),
+        click: () => {
+          if (typeof selectionText === 'string' && selectionText) {
+            clipboard.writeText(selectionText)
+          }
+        },
       },
       {
         label: 'Paste',
@@ -323,9 +328,12 @@ app.whenReady().then(async () => {
     })
   }
 
-  // Deny all permission requests — a terminal emulator needs no browser permissions
-  // (camera, microphone, geolocation, notifications, etc.).
-  session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
+  // Deny all permission requests except clipboard — a terminal emulator needs no
+  // browser permissions (camera, microphone, geolocation, notifications, etc.)
+  // but right-click paste requires clipboard-read.
+  session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) =>
+    cb(perm === 'clipboard-read' || perm === 'clipboard-sanitized-write')
+  )
 
   // Set dock icon on macOS in dev mode (packaged apps use the .icns from the app bundle)
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {

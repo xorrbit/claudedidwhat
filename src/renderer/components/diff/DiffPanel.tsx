@@ -49,7 +49,7 @@ export const DiffPanel = memo(function DiffPanel({
   const pendingHeightRef = useRef<number | null>(null)
 
   // Diff view mode toggle
-  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('auto')
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>('unified')
   const cycleDiffViewMode = useCallback(() => {
     setDiffViewMode(prev => {
       const modes: DiffViewMode[] = ['auto', 'unified', 'split']

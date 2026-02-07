@@ -179,7 +179,8 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
       // Right-click context menu
       handleContextMenu = (e: MouseEvent) => {
         e.preventDefault()
-        window.electronAPI.terminal.showContextMenu(terminal!.hasSelection())
+        const hasSelection = terminal!.hasSelection()
+        window.electronAPI.terminal.showContextMenu(hasSelection, hasSelection ? terminal!.getSelection() : '')
       }
       container.addEventListener('contextmenu', handleContextMenu)
 
@@ -187,11 +188,6 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
       unsubscribeContextMenu = window.electronAPI.terminal.onContextMenuAction((action) => {
         if (!terminal) return
         switch (action) {
-          case 'copy':
-            if (terminal.hasSelection()) {
-              navigator.clipboard.writeText(terminal.getSelection())
-            }
-            break
           case 'paste':
             navigator.clipboard.readText().then((text) => {
               if (text) terminal!.paste(text)
@@ -246,6 +242,9 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
 
         // Resize to actual dimensions
         window.electronAPI.pty.resize({ sessionId, cols, rows })
+
+        // Push the initial prompt down so it's not obscured by the file picker overlay
+        terminal!.write('\r\n'.repeat(9))
 
         if (bootstrapCommands && bootstrapCommands.length > 0) {
           for (const command of bootstrapCommands) {

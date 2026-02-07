@@ -110,8 +110,8 @@ const electronAPI: ElectronAPI = {
   },
 
   terminal: {
-    showContextMenu: (hasSelection: boolean) =>
-      ipcRenderer.send(TERMINAL_MENU_CHANNELS.SHOW, hasSelection),
+    showContextMenu: (hasSelection: boolean, selectionText: string) =>
+      ipcRenderer.send(TERMINAL_MENU_CHANNELS.SHOW, hasSelection, selectionText),
 
     onContextMenuAction: (callback: (action: string) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, action: string) => {
