@@ -14,6 +14,7 @@ export const PTY_CHANNELS = {
   DATA: 'pty:data',
   EXIT: 'pty:exit',
   CWD_CHANGED: 'pty:cwdChanged',
+  AI_STOP: 'pty:aiStop',
   GET_FOREGROUND_PROCESS: 'pty:getForegroundProcess',
 } as const
 
@@ -105,6 +106,7 @@ export interface ElectronAPI {
     onData: (callback: (sessionId: string, data: string) => void) => () => void
     onExit: (callback: (sessionId: string, code: number) => void) => () => void
     onCwdChanged: (callback: (sessionId: string, cwd: string) => void) => () => void
+    onAiStop: (callback: (sessionId: string) => void) => () => void
     getCwd: (sessionId: string) => Promise<string | null>
     getForegroundProcess: (sessionId: string) => Promise<string | null>
   }

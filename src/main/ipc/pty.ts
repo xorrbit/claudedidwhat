@@ -5,11 +5,10 @@ import { sendToRenderer } from '../index'
 import { debugLog } from '../logger'
 import { validateIpcSender } from '../security/validate-sender'
 import {
-  assertNonEmptyString,
+  assertSessionId,
   assertString,
   assertPtySpawnOptions,
   assertPtyResizeOptions,
-  MAX_SESSION_ID_LENGTH,
   MAX_PTY_DATA_LENGTH,
 } from '../security/validate-ipc-params'
 
@@ -33,6 +32,9 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
         onCwdChanged: (cwd) => {
           sendToRenderer(PTY_CHANNELS.CWD_CHANGED, sessionId, cwd)
         },
+        onAiStop: () => {
+          sendToRenderer(PTY_CHANNELS.AI_STOP, sessionId)
+        },
       })
     } catch (err) {
       console.error('Failed to spawn PTY:', err)
@@ -43,7 +45,7 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
   ipcMain.on(PTY_CHANNELS.INPUT, (event, sessionId: string, data: string) => {
     if (!validateIpcSender(event)) return
     try {
-      assertNonEmptyString(sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+      assertSessionId(sessionId, 'sessionId')
       assertString(data, 'data', MAX_PTY_DATA_LENGTH)
     } catch {
       return
@@ -64,7 +66,7 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
   ipcMain.on(PTY_CHANNELS.KILL, (event, sessionId: string) => {
     if (!validateIpcSender(event)) return
     try {
-      assertNonEmptyString(sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+      assertSessionId(sessionId, 'sessionId')
     } catch {
       return
     }
@@ -73,13 +75,13 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
 
   ipcMain.handle('pty:getCwd', (event, sessionId: string) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
-    assertNonEmptyString(sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+    assertSessionId(sessionId, 'sessionId')
     return ptyManager.getCwd(sessionId)
   })
 
   ipcMain.handle(PTY_CHANNELS.GET_FOREGROUND_PROCESS, (event, sessionId: string) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
-    assertNonEmptyString(sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+    assertSessionId(sessionId, 'sessionId')
     return ptyManager.getForegroundProcess(sessionId)
   })
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   assertString,
   assertNonEmptyString,
+  assertSessionId,
   assertOptionalString,
   assertFiniteNumber,
   assertBoolean,
@@ -98,6 +99,25 @@ describe('validate-ipc-params', () => {
 
     it('rejects strings exceeding maxLength', () => {
       expect(() => assertOptionalString('a'.repeat(101), 'param', 100)).toThrow(/maximum length/)
+    })
+  })
+
+  describe('assertSessionId', () => {
+    it('accepts safe session ids', () => {
+      for (const value of ['session-a', 'session_1', 'A1_B2-C3']) {
+        expect(() => assertSessionId(value)).not.toThrow()
+      }
+    })
+
+    it('rejects traversal and path separator characters', () => {
+      for (const value of ['../evil', 'session/a', 'session\\a', 'session.a']) {
+        expect(() => assertSessionId(value)).toThrow(/letters, numbers/)
+      }
+    })
+
+    it('rejects empty and overlong values', () => {
+      expect(() => assertSessionId('')).toThrow(/must not be empty/)
+      expect(() => assertSessionId('a'.repeat(MAX_SESSION_ID_LENGTH + 1))).toThrow(/maximum length/)
     })
   })
 
@@ -216,6 +236,10 @@ describe('validate-ipc-params', () => {
       expect(() => assertPtySpawnOptions({ sessionId: '', cwd: '/home' })).toThrow(/sessionId/)
     })
 
+    it('rejects sessionId with unsafe characters', () => {
+      expect(() => assertPtySpawnOptions({ sessionId: '../evil', cwd: '/home' })).toThrow(/letters, numbers/)
+    })
+
     it('rejects empty cwd', () => {
       expect(() => assertPtySpawnOptions({ sessionId: 'abc', cwd: '' })).toThrow(/cwd/)
     })
@@ -274,6 +298,10 @@ describe('validate-ipc-params', () => {
 
     it('rejects cols below minimum', () => {
       expect(() => assertPtyResizeOptions({ sessionId: 'abc', cols: 0, rows: 24 })).toThrow(/cols/)
+    })
+
+    it('rejects unsafe sessionId characters', () => {
+      expect(() => assertPtyResizeOptions({ sessionId: '../evil', cols: 80, rows: 24 })).toThrow(/letters, numbers/)
     })
 
     it('rejects cols above maximum', () => {

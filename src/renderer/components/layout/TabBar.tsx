@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, type WheelEvent, useCallback, useEffect, useRef } from 'react'
+import { memo, type MouseEvent as ReactMouseEvent, type WheelEvent, useCallback, useEffect, useRef } from 'react'
 import { Session } from '@shared/types'
 import { Tab } from './Tab'
 import logoPng from '../../../../resources/icon.png'
@@ -12,7 +12,7 @@ interface TabBarProps {
   onNewTab: () => void
 }
 
-export function TabBar({
+export const TabBar = memo(function TabBar({
   sessions,
   activeSessionId,
   waitingSessionIds,
@@ -204,4 +204,4 @@ export function TabBar({
       </div>
     </div>
   )
-}
+})

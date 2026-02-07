@@ -1,30 +1,122 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Session } from '@shared/types'
-import { subscribePtyData } from '../lib/eventDispatchers'
+import { subscribePtyAiStop, subscribePtyData } from '../lib/eventDispatchers'
 
 const PROMPT_IDLE_THRESHOLD_MS = 700
 const FALLBACK_IDLE_THRESHOLD_MS = 8000
 const PROMPT_HINT_MAX_AGE_MS = 20000
 const FOREGROUND_POLL_INTERVAL_MS = 1500
 const WAITING_CLEAR_CONFIRMATION_POLLS = 2
+const STOP_HOOK_SUPPRESSION_MS = 5000
 const RECENT_OUTPUT_MAX_CHARS = 4000
 const RECENT_OUTPUT_MAX_LINES = 8
 const PROMPT_SCORE_THRESHOLD = 3
 
-const INPUT_PROMPT_SIGNALS: Array<{ pattern: RegExp; weight: number }> = [
-  { pattern: /\b(?:waiting|awaiting)\s+for\s+(?:your\s+)?(?:input|response|reply)\b/i, weight: 4 },
-  { pattern: /\b(?:press|hit|type|enter|provide)\b.{0,40}\b(?:input|response|reply|continue|confirm|send|submit)\b/i, weight: 3 },
-  { pattern: /\bwhat\s+would\s+you\s+like\s+to\s+do\??\b/i, weight: 3 },
-  { pattern: /\b(?:choose|select)\s+(?:an?\s+)?option\b/i, weight: 3 },
-  { pattern: /\b(?:yes\/no|y\/n|y\/n\/q)\b/i, weight: 2 },
-  { pattern: /\bcontinue\?\s*$/im, weight: 2 },
-  { pattern: /\b(?:confirm|proceed)\?\s*$/im, weight: 2 },
+interface ScoredSignal {
+  weight: number
+  matches: (text: string) => boolean
+}
+
+function normalizeForPhraseMatching(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function matchesAnyPhrase(text: string, phrases: string[]): boolean {
+  for (const phrase of phrases) {
+    if (text.includes(phrase)) return true
+  }
+  return false
+}
+
+const INPUT_PROMPT_SIGNALS: ScoredSignal[] = [
+  {
+    weight: 4,
+    matches: (text) => matchesAnyPhrase(normalizeForPhraseMatching(text), [
+      'waiting for input',
+      'waiting for your input',
+      'waiting for response',
+      'waiting for your response',
+      'waiting for reply',
+      'waiting for your reply',
+      'awaiting input',
+      'awaiting your input',
+      'awaiting response',
+      'awaiting your response',
+      'awaiting reply',
+      'awaiting your reply',
+    ]),
+  },
+  {
+    weight: 4,
+    matches: (text) => matchesAnyPhrase(normalizeForPhraseMatching(text), [
+      'needs input',
+      'needs your input',
+      'needs response',
+      'needs your response',
+      'needs confirmation',
+      'needs your confirmation',
+      'require input',
+      'require your input',
+      'requires input',
+      'requires your input',
+      'required input',
+      'required your input',
+      'require response',
+      'requires response',
+      'required response',
+      'require confirmation',
+      'requires confirmation',
+      'required confirmation',
+    ]),
+  },
+  {
+    weight: 4,
+    matches: (text) => /\bidle\s+prompt\b/i.test(text),
+  },
+  {
+    weight: 3,
+    matches: (text) => /\b(?:press|hit|type|enter|provide)\b.{0,40}\b(?:input|response|reply|continue|confirm|send|submit)\b/i.test(text),
+  },
+  {
+    weight: 3,
+    matches: (text) => /\bwhat\s+would\s+you\s+like\s+to\s+do\??\b/i.test(text),
+  },
+  {
+    weight: 3,
+    matches: (text) => matchesAnyPhrase(normalizeForPhraseMatching(text), [
+      'choose option',
+      'choose an option',
+      'select option',
+      'select an option',
+    ]),
+  },
+  {
+    weight: 2,
+    matches: (text) => /\b(?:yes\/no|y\/n|y\/n\/q)\b/i.test(text),
+  },
+  {
+    weight: 2,
+    matches: (text) => /\bcontinue\?\s*$/im.test(text),
+  },
+  {
+    weight: 2,
+    matches: (text) => /\b(?:confirm|proceed)\?\s*$/im.test(text),
+  },
 ]
 
-const NON_PROMPT_SIGNALS: Array<{ pattern: RegExp; weight: number }> = [
-  { pattern: /\b(?:thinking|analyz(?:ing|e)|working|searching|processing|generating|loading|running|executing|planning|applying|compiling)\b/i, weight: 2 },
-  { pattern: /\bplease\s+wait\b/i, weight: 2 },
-  { pattern: /\b\d{1,3}%\b/, weight: 1 },
+const NON_PROMPT_SIGNALS: ScoredSignal[] = [
+  {
+    weight: 2,
+    matches: (text) => /\b(?:thinking|analyz(?:ing|e)|working|searching|processing|generating|loading|running|executing|planning|applying|compiling)\b/i.test(text),
+  },
+  {
+    weight: 2,
+    matches: (text) => /\bplease\s+wait\b/i.test(text),
+  },
+  {
+    weight: 1,
+    matches: (text) => /\b\d{1,3}%\b/.test(text),
+  },
 ]
 
 // Strip ANSI control sequences to make text matching robust across colorized output.
@@ -54,14 +146,14 @@ function appendRecentOutputTail(previousTail: string, nextChunk: string): string
 function scorePromptLikelihood(recentTail: string): number {
   let score = 0
 
-  for (const { pattern, weight } of INPUT_PROMPT_SIGNALS) {
-    if (pattern.test(recentTail)) {
+  for (const { matches, weight } of INPUT_PROMPT_SIGNALS) {
+    if (matches(recentTail)) {
       score += weight
     }
   }
 
-  for (const { pattern, weight } of NON_PROMPT_SIGNALS) {
-    if (pattern.test(recentTail)) {
+  for (const { matches, weight } of NON_PROMPT_SIGNALS) {
+    if (matches(recentTail)) {
       score -= weight
     }
   }
@@ -93,13 +185,27 @@ export function useInputWaiting(
   const [waitingIds, setWaitingIds] = useState<Set<string>>(new Set())
   const lastOutputTime = useRef<Map<string, number>>(new Map())
   const lastPromptHintTime = useRef<Map<string, number>>(new Map())
+  const lastStopHookTime = useRef<Map<string, number>>(new Map())
   const recentOutputTail = useRef<Map<string, string>>(new Map())
   const waitingClearStreak = useRef<Map<string, number>>(new Map())
+  const waitingIdsRef = useRef<Set<string>>(new Set())
+  const activeSessionIdRef = useRef<string | null>(activeSessionId)
   const sessionIdsKey = sessions.map((session) => session.id).join('\0')
+  const sessionIds = useMemo(
+    () => (sessionIdsKey ? sessionIdsKey.split('\0') : []),
+    [sessionIdsKey]
+  )
+
+  useEffect(() => {
+    activeSessionIdRef.current = activeSessionId
+  }, [activeSessionId])
+
+  useEffect(() => {
+    waitingIdsRef.current = waitingIds
+  }, [waitingIds])
 
   useEffect(() => {
     const now = Date.now()
-    const sessionIds = sessionIdsKey ? sessionIdsKey.split('\0') : []
     const activeIds = new Set(sessionIds)
 
     for (const sessionId of sessionIds) {
@@ -112,6 +218,7 @@ export function useInputWaiting(
       if (!activeIds.has(sessionId)) {
         lastOutputTime.current.delete(sessionId)
         lastPromptHintTime.current.delete(sessionId)
+        lastStopHookTime.current.delete(sessionId)
         recentOutputTail.current.delete(sessionId)
         waitingClearStreak.current.delete(sessionId)
       }
@@ -126,14 +233,20 @@ export function useInputWaiting(
       }
       return setsAreEqual(previous, filtered) ? previous : filtered
     })
-  }, [sessionIdsKey])
+  }, [sessionIds])
 
   useEffect(() => {
-    const sessionIds = sessionIdsKey ? sessionIdsKey.split('\0') : []
     const unsubscribers = sessionIds.map((sessionId) =>
       subscribePtyData(sessionId, (data) => {
         const now = Date.now()
         lastOutputTime.current.set(sessionId, now)
+
+        if (sessionId === activeSessionIdRef.current) {
+          // Active tab isn't eligible for waiting highlight; skip heavier prompt parsing work.
+          lastPromptHintTime.current.delete(sessionId)
+          return
+        }
+
         const normalizedData = normalizeOutputForMatching(data)
         const previousTail = recentOutputTail.current.get(sessionId) ?? ''
         const nextTail = appendRecentOutputTail(previousTail, normalizedData)
@@ -156,7 +269,30 @@ export function useInputWaiting(
         unsubscribe()
       }
     }
-  }, [sessionIdsKey])
+  }, [sessionIds])
+
+  useEffect(() => {
+    const unsubscribers = sessionIds.map((sessionId) =>
+      subscribePtyAiStop(sessionId, () => {
+        const now = Date.now()
+        lastStopHookTime.current.set(sessionId, now)
+        lastPromptHintTime.current.delete(sessionId)
+        waitingClearStreak.current.delete(sessionId)
+        setWaitingIds((previous) => {
+          if (!previous.has(sessionId)) return previous
+          const next = new Set(previous)
+          next.delete(sessionId)
+          return next
+        })
+      })
+    )
+
+    return () => {
+      for (const unsubscribe of unsubscribers) {
+        unsubscribe()
+      }
+    }
+  }, [sessionIds])
 
   useEffect(() => {
     let cancelled = false
@@ -167,7 +303,6 @@ export function useInputWaiting(
       pollInFlight = true
 
       try {
-        const sessionIds = sessionIdsKey ? sessionIdsKey.split('\0') : []
         const backgroundSessionIds = sessionIds.filter((sessionId) => sessionId !== activeSessionId)
         if (backgroundSessionIds.length === 0) {
           setWaitingIds((previous) => (previous.size === 0 ? previous : new Set()))
@@ -175,8 +310,53 @@ export function useInputWaiting(
         }
 
         const now = Date.now()
+        const previousWaitingIds = waitingIdsRef.current
+        const candidateSessionIds: string[] = []
+        for (const sessionId of backgroundSessionIds) {
+          if (previousWaitingIds.has(sessionId)) {
+            candidateSessionIds.push(sessionId)
+            continue
+          }
+
+          const lastOutput = lastOutputTime.current.get(sessionId) ?? now
+          const lastPromptHint = lastPromptHintTime.current.get(sessionId)
+          const hasFreshPromptHint = (
+            typeof lastPromptHint === 'number' &&
+            now - lastPromptHint <= PROMPT_HINT_MAX_AGE_MS
+          )
+          const idleThreshold = hasFreshPromptHint
+            ? PROMPT_IDLE_THRESHOLD_MS
+            : FALLBACK_IDLE_THRESHOLD_MS
+
+          if (now - lastOutput >= idleThreshold) {
+            candidateSessionIds.push(sessionId)
+          }
+        }
+
+        if (candidateSessionIds.length === 0) {
+          if (previousWaitingIds.size === 0) {
+            return
+          }
+
+          setWaitingIds((previous) => {
+            if (previous.size === 0) return previous
+            const stabilized = new Set<string>()
+            for (const sessionId of previous) {
+              const clearStreak = (waitingClearStreak.current.get(sessionId) ?? 0) + 1
+              if (clearStreak >= WAITING_CLEAR_CONFIRMATION_POLLS) {
+                waitingClearStreak.current.delete(sessionId)
+                continue
+              }
+              waitingClearStreak.current.set(sessionId, clearStreak)
+              stabilized.add(sessionId)
+            }
+            return setsAreEqual(previous, stabilized) ? previous : stabilized
+          })
+          return
+        }
+
         const foregroundProcesses = await Promise.all(
-          backgroundSessionIds.map(async (sessionId) => {
+          candidateSessionIds.map(async (sessionId) => {
             try {
               const processName = await window.electronAPI.pty.getForegroundProcess(sessionId)
               return { sessionId, processName }
@@ -198,6 +378,14 @@ export function useInputWaiting(
 
           const lastOutput = lastOutputTime.current.get(sessionId) ?? now
           const lastPromptHint = lastPromptHintTime.current.get(sessionId)
+          const lastStopHook = lastStopHookTime.current.get(sessionId)
+          const suppressFromRecentStop = (
+            typeof lastStopHook === 'number' &&
+            now - lastStopHook <= STOP_HOOK_SUPPRESSION_MS
+          )
+          if (suppressFromRecentStop) {
+            continue
+          }
           const hasFreshPromptHint = (
             typeof lastPromptHint === 'number' &&
             now - lastPromptHint <= PROMPT_HINT_MAX_AGE_MS
@@ -256,7 +444,7 @@ export function useInputWaiting(
       cancelled = true
       window.clearInterval(intervalId)
     }
-  }, [activeSessionId, sessionIdsKey])
+  }, [activeSessionId, sessionIds])
 
   useEffect(() => {
     if (!activeSessionId) return

@@ -7,6 +7,7 @@ export const MAX_SESSION_ID_LENGTH = 256
 export const MAX_PTY_DATA_LENGTH = 1_048_576 // 1 MB — handles large pastes
 export const MIN_TERMINAL_DIMENSION = 1
 export const MAX_TERMINAL_DIMENSION = 500
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]+$/
 
 export function assertString(value: unknown, name: string, maxLength = MAX_PATH_LENGTH): asserts value is string {
   if (typeof value !== 'string') {
@@ -27,6 +28,13 @@ export function assertNonEmptyString(value: unknown, name: string, maxLength = M
 export function assertOptionalString(value: unknown, name: string, maxLength = MAX_PATH_LENGTH): asserts value is string | undefined {
   if (value === undefined) return
   assertNonEmptyString(value, name, maxLength)
+}
+
+export function assertSessionId(value: unknown, name = 'sessionId'): asserts value is string {
+  assertNonEmptyString(value, name, MAX_SESSION_ID_LENGTH)
+  if (!SESSION_ID_PATTERN.test(value)) {
+    throw new TypeError(`${name} must contain only letters, numbers, "_" or "-"`)
+  }
 }
 
 export function assertFiniteNumber(value: unknown, name: string): asserts value is number {
@@ -53,7 +61,7 @@ export function assertPtySpawnOptions(value: unknown): asserts value is { sessio
     throw new TypeError('PtySpawnOptions must be an object')
   }
   const obj = value as Record<string, unknown>
-  assertNonEmptyString(obj.sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+  assertSessionId(obj.sessionId, 'sessionId')
   assertNonEmptyString(obj.cwd, 'cwd')
   assertOptionalString(obj.shell, 'shell')
 }
@@ -63,7 +71,7 @@ export function assertPtyResizeOptions(value: unknown): asserts value is { sessi
     throw new TypeError('PtyResizeOptions must be an object')
   }
   const obj = value as Record<string, unknown>
-  assertNonEmptyString(obj.sessionId, 'sessionId', MAX_SESSION_ID_LENGTH)
+  assertSessionId(obj.sessionId, 'sessionId')
   assertPositiveInt(obj.cols, 'cols', MIN_TERMINAL_DIMENSION, MAX_TERMINAL_DIMENSION)
   assertPositiveInt(obj.rows, 'rows', MIN_TERMINAL_DIMENSION, MAX_TERMINAL_DIMENSION)
 }

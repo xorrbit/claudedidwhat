@@ -78,10 +78,16 @@ describe('registerFsHandlers', () => {
       handles.get(FS_CHANNELS.WATCH_START)!({ sender: {} }, '', '/repo')
     ).rejects.toThrow()
     await expect(
+      handles.get(FS_CHANNELS.WATCH_START)!({ sender: {} }, '../evil', '/repo')
+    ).rejects.toThrow()
+    await expect(
       handles.get(FS_CHANNELS.WATCH_START)!({ sender: {} }, 'session-a', '')
     ).rejects.toThrow()
     await expect(
       handles.get(FS_CHANNELS.WATCH_STOP)!({ sender: {} }, '')
+    ).rejects.toThrow()
+    await expect(
+      handles.get(FS_CHANNELS.WATCH_STOP)!({ sender: {} }, '../evil')
     ).rejects.toThrow()
 
     expect(mockWatch).not.toHaveBeenCalled()

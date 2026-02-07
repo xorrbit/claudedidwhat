@@ -4,6 +4,7 @@ import type { FileChangeEvent } from '@shared/types'
 interface ListenerStore {
   ptyData: ((sessionId: string, data: string) => void) | null
   ptyExit: ((sessionId: string, code: number) => void) | null
+  ptyAiStop: ((sessionId: string) => void) | null
   fileChanged: ((event: FileChangeEvent) => void) | null
 }
 
@@ -11,11 +12,13 @@ function setupGlobalListenerMocks() {
   const listeners: ListenerStore = {
     ptyData: null,
     ptyExit: null,
+    ptyAiStop: null,
     fileChanged: null,
   }
 
   const unsubscribePtyData = vi.fn()
   const unsubscribePtyExit = vi.fn()
+  const unsubscribePtyAiStop = vi.fn()
   const unsubscribeFileChanged = vi.fn()
 
   window.electronAPI.pty.onData = vi.fn((cb) => {
@@ -26,6 +29,10 @@ function setupGlobalListenerMocks() {
     listeners.ptyExit = cb
     return unsubscribePtyExit
   })
+  window.electronAPI.pty.onAiStop = vi.fn((cb) => {
+    listeners.ptyAiStop = cb
+    return unsubscribePtyAiStop
+  })
   window.electronAPI.fs.onFileChanged = vi.fn((cb) => {
     listeners.fileChanged = cb
     return unsubscribeFileChanged
@@ -35,6 +42,7 @@ function setupGlobalListenerMocks() {
     listeners,
     unsubscribePtyData,
     unsubscribePtyExit,
+    unsubscribePtyAiStop,
     unsubscribeFileChanged,
   }
 }
@@ -103,6 +111,25 @@ describe('eventDispatchers', () => {
 
     listeners.ptyExit?.('session-a', 1)
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+
+  it('scopes AI stop events per session and cleans up listener after unsubscribe', async () => {
+    const { listeners, unsubscribePtyAiStop } = setupGlobalListenerMocks()
+    const { subscribePtyAiStop } = await import('@renderer/lib/eventDispatchers')
+
+    const onA = vi.fn()
+    const onB = vi.fn()
+    const unsubA = subscribePtyAiStop('session-a', onA)
+    subscribePtyAiStop('session-b', onB)
+
+    listeners.ptyAiStop?.('session-a')
+    expect(onA).toHaveBeenCalledTimes(1)
+    expect(onB).not.toHaveBeenCalled()
+
+    unsubA()
+    listeners.ptyAiStop?.('session-a')
+    expect(onA).toHaveBeenCalledTimes(1)
+    expect(unsubscribePtyAiStop).not.toHaveBeenCalled()
   })
 
   it('scopes file change events per session and stops callbacks after unsubscribe', async () => {

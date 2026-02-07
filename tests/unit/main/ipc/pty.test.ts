@@ -98,6 +98,7 @@ describe('registerPtyHandlers', () => {
         onData: expect.any(Function),
         onExit: expect.any(Function),
         onCwdChanged: expect.any(Function),
+        onAiStop: expect.any(Function),
       })
     )
 
@@ -105,10 +106,12 @@ describe('registerPtyHandlers', () => {
     callbacks.onData('hello')
     callbacks.onExit(0)
     callbacks.onCwdChanged('/work/new')
+    callbacks.onAiStop()
 
     expect(mockSendToRenderer).toHaveBeenCalledWith(PTY_CHANNELS.DATA, 'session-a', 'hello')
     expect(mockSendToRenderer).toHaveBeenCalledWith(PTY_CHANNELS.EXIT, 'session-a', 0)
     expect(mockSendToRenderer).toHaveBeenCalledWith(PTY_CHANNELS.CWD_CHANGED, 'session-a', '/work/new')
+    expect(mockSendToRenderer).toHaveBeenCalledWith(PTY_CHANNELS.AI_STOP, 'session-a')
   })
 
   it('propagates spawn errors', async () => {
@@ -133,6 +136,7 @@ describe('registerPtyHandlers', () => {
     const inputHandler = events.get(PTY_CHANNELS.INPUT)!
 
     inputHandler({ sender: {} }, '', 'hello')
+    inputHandler({ sender: {} }, '../evil', 'hello')
     inputHandler({ sender: {} }, 'session-a', 42)
 
     expect(mockWrite).not.toHaveBeenCalled()
@@ -156,7 +160,9 @@ describe('registerPtyHandlers', () => {
 
     resizeHandler({ sender: {} }, { sessionId: 'session-a', cols: 0, rows: 24 })
     resizeHandler({ sender: {} }, { sessionId: 'session-a', cols: 80, rows: 600 })
+    resizeHandler({ sender: {} }, { sessionId: '../evil', cols: 80, rows: 24 })
     killHandler({ sender: {} }, '')
+    killHandler({ sender: {} }, '../evil')
 
     expect(mockResize).not.toHaveBeenCalled()
     expect(mockKill).not.toHaveBeenCalled()

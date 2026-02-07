@@ -22,12 +22,14 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
     <button
       className={`
         relative flex items-center gap-2.5 px-4 py-2 text-sm
-        transition-all duration-200 ease-out-expo
+        transition-colors duration-200 ease-out-expo
         flex-1 min-w-[100px] max-w-[240px] group
         rounded-t-lg
         ${isActive
           ? 'bg-obsidian-bg text-obsidian-text'
-          : 'bg-transparent text-obsidian-text-muted hover:text-obsidian-text-secondary hover:bg-obsidian-elevated/50'
+          : isWaiting
+            ? 'bg-obsidian-accent/8 text-obsidian-text-secondary hover:bg-obsidian-accent/12'
+            : 'bg-transparent text-obsidian-text-muted hover:text-obsidian-text-secondary hover:bg-obsidian-elevated/50'
         }
       `}
       onClick={handleSelect}
@@ -35,30 +37,29 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Active tab glow indicator */}
-      {(isActive || isWaiting) && (
+      {isActive && (
         <>
           {/* Top accent line */}
           <div
             className={`
               absolute top-0 left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-obsidian-accent to-transparent rounded-full
-              ${isActive ? 'opacity-100' : 'opacity-50'}
+              opacity-100
             `}
           />
           {/* Bottom connection to content */}
-          {isActive && (
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-obsidian-bg" />
-          )}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-obsidian-bg" />
         </>
       )}
 
       {/* Tab icon */}
       <div className="relative flex items-center">
-        {isWaiting && !isActive && (
-          <span className="absolute -left-2.5 w-1 h-1 rounded-full bg-obsidian-accent animate-tab-waiting shadow-glow-sm" />
-        )}
         <svg
           className={`w-3.5 h-3.5 flex-shrink-0 transition-colors duration-200 ${
-            isActive ? 'text-obsidian-accent' : 'text-obsidian-text-ghost'
+            isActive
+              ? 'text-obsidian-accent'
+              : isWaiting
+                ? 'text-obsidian-modified animate-tab-waiting [filter:drop-shadow(0_0_4px_rgba(251,191,36,0.75))]'
+                : 'text-obsidian-text-ghost'
           }`}
           fill="none"
           stroke="currentColor"
@@ -73,13 +74,13 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
         </svg>
       </div>
 
-      <span className="truncate flex-1 text-left font-medium">{name}</span>
+      <span className="truncate text-left font-medium flex-1 min-w-0">{name}</span>
 
       {/* Close button - visible on hover or when active, uses CSS group-hover */}
       <span
         className={`
           w-5 h-5 flex items-center justify-center rounded
-          transition-all duration-150
+          transition-colors transition-opacity duration-150
           hover:bg-obsidian-deleted/20 hover:text-obsidian-deleted
           ${isActive
             ? 'opacity-100'
