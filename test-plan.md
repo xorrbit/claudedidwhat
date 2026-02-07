@@ -42,16 +42,22 @@ Document current test coverage gaps and define specific tests to add. This file 
     - `src/renderer/context/SessionContext.tsx` (small no-churn update for unchanged session names on `onCwdChanged`)
     - Covered: home-dir fallback, hidden-tab poll suppression, visibility-triggered refresh, `onCwdChanged` map/name updates, unchanged-value no-op behavior.
 - In progress:
-  - Coverage config follow-up: revisit coverage filters and thresholds for `src/main/*` now that main-process tests are in place.
   - `2026-02-07` verification run:
     - `npm run test:unit` passed (`36` files, `481` tests).
     - `npm run test:e2e` currently skips locally when launch prerequisites are unavailable (expected outside configured Electron E2E profile).
+  - `2026-02-07` coverage follow-up:
+    - Updated `vitest.config.ts` coverage filters to include `src/main/**/*` (removed exclusion).
+    - Added domain thresholds:
+      - `src/main/security/**` highest threshold.
+      - `src/main/ipc/**` high threshold.
+      - `src/renderer/components/**` moderate threshold.
+    - Coverage execution is currently blocked in this environment because `@vitest/coverage-v8` is not installed and network-restricted install failed.
 
 ## Current Coverage Snapshot
 - Unit tests are concentrated in renderer hooks/components and main service classes.
 - Main-process startup, IPC wiring modules, preload bridge, and security helpers now have direct unit coverage.
 - E2E harness now supports deterministic fixture home directories and strict CI prereq failures; local non-E2E runs skip by design when prerequisites are not met.
-- `vitest` coverage still excludes `src/main/**/*`; thresholds/filter follow-up remains open (`vitest.config.ts:12`).
+- `vitest` coverage now includes `src/main/**/*` and applies domain-specific thresholds; running coverage requires `@vitest/coverage-v8` to be present.
 
 ## Priority Model
 - `P0`: Security boundary, IPC authorization/validation, lifecycle behavior.
