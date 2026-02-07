@@ -51,13 +51,15 @@ Document current test coverage gaps and define specific tests to add. This file 
       - `src/main/security/**` highest threshold.
       - `src/main/ipc/**` high threshold.
       - `src/renderer/components/**` moderate threshold.
-    - Coverage execution is currently blocked in this environment because `@vitest/coverage-v8` is not installed and network-restricted install failed.
+    - Installed `@vitest/coverage-v8` and verified coverage run passes with thresholds:
+      - `node scripts/run-vitest.cjs --coverage` passed (`36` files, `481` tests).
+      - Overall coverage snapshot: `Statements 88.13%`, `Branches 76.83%`, `Functions 88.58%`, `Lines 90.86%`.
 
 ## Current Coverage Snapshot
 - Unit tests are concentrated in renderer hooks/components and main service classes.
 - Main-process startup, IPC wiring modules, preload bridge, and security helpers now have direct unit coverage.
 - E2E harness now supports deterministic fixture home directories and strict CI prereq failures; local non-E2E runs skip by design when prerequisites are not met.
-- `vitest` coverage now includes `src/main/**/*` and applies domain-specific thresholds; running coverage requires `@vitest/coverage-v8` to be present.
+- `vitest` coverage now includes `src/main/**/*`, applies domain-specific thresholds, and is verified with `@vitest/coverage-v8`.
 
 ## Priority Model
 - `P0`: Security boundary, IPC authorization/validation, lifecycle behavior.
