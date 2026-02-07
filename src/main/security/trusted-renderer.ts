@@ -3,8 +3,17 @@ import { resolve } from 'path'
 import { fileURLToPath } from 'url'
 import { pathsEqual } from './path-utils'
 
-function getTrustedRendererIndexPath(): string {
-  return resolve(app.getAppPath(), 'dist', 'renderer', 'index.html')
+function getTrustedRendererIndexPaths(): string[] {
+  const appPath = app.getAppPath()
+  // appPath can vary by launch mode:
+  // - project root: /repo
+  // - dist folder: /repo/dist
+  // - dist main folder: /repo/dist/main
+  return [
+    resolve(appPath, 'dist', 'renderer', 'index.html'),
+    resolve(appPath, '..', 'dist', 'renderer', 'index.html'),
+    resolve(appPath, '..', '..', 'dist', 'renderer', 'index.html'),
+  ]
 }
 
 function getTrustedDevServerUrl(): URL | null {
@@ -38,10 +47,10 @@ export function isTrustedRendererFileUrl(url: string): boolean {
     if (parsed.protocol !== 'file:') return false
 
     const filePath = fileURLToPath(parsed)
-    const trustedIndex = getTrustedRendererIndexPath()
+    const trustedIndexPaths = getTrustedRendererIndexPaths()
 
     // Allow only the packaged renderer entrypoint.
-    return pathsEqual(filePath, trustedIndex)
+    return trustedIndexPaths.some((trustedIndexPath) => pathsEqual(filePath, trustedIndexPath))
   } catch {
     return false
   }

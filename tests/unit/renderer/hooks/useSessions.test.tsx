@@ -7,6 +7,21 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <SessionProvider>{children}</SessionProvider>
 )
 
+function forceDocumentHidden(value: boolean): () => void {
+  const previous = Object.getOwnPropertyDescriptor(document, 'hidden')
+  Object.defineProperty(document, 'hidden', {
+    configurable: true,
+    get: () => value,
+  })
+  return () => {
+    if (previous) {
+      Object.defineProperty(document, 'hidden', previous)
+      return
+    }
+    delete (document as { hidden?: boolean }).hidden
+  }
+}
+
 describe('useSessions (SessionContext)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -89,28 +104,33 @@ describe('useSessions (SessionContext)', () => {
   })
 
   it('removes session by ID', async () => {
-    const { result } = renderHook(() => useSessionContext(), { wrapper })
+    const restoreDocumentHidden = forceDocumentHidden(true)
+    try {
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
 
-    // Wait for initial session
-    await waitFor(() => {
-      expect(result.current.sessions).toHaveLength(1)
-    })
+      // Wait for initial session
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
 
-    await act(async () => {
-      await result.current.createSession('/test/one')
-      await result.current.createSession('/test/two')
-    })
+      await act(async () => {
+        await result.current.createSession('/test/one')
+        await result.current.createSession('/test/two')
+      })
 
-    expect(result.current.sessions).toHaveLength(3) // initial + 2 new
+      expect(result.current.sessions).toHaveLength(3) // initial + 2 new
 
-    const sessionToRemove = result.current.sessions[1].id
+      const sessionToRemove = result.current.sessions[1].id
 
-    act(() => {
-      result.current.closeSession(sessionToRemove)
-    })
+      act(() => {
+        result.current.closeSession(sessionToRemove)
+      })
 
-    expect(result.current.sessions).toHaveLength(2)
-    expect(result.current.sessions.find((s) => s.id === sessionToRemove)).toBeUndefined()
+      expect(result.current.sessions).toHaveLength(2)
+      expect(result.current.sessions.find((s) => s.id === sessionToRemove)).toBeUndefined()
+    } finally {
+      restoreDocumentHidden()
+    }
   })
 
   it('tracks active session correctly', async () => {
@@ -143,33 +163,38 @@ describe('useSessions (SessionContext)', () => {
   })
 
   it('handles closing active session - switches to adjacent', async () => {
-    const { result } = renderHook(() => useSessionContext(), { wrapper })
+    const restoreDocumentHidden = forceDocumentHidden(true)
+    try {
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
 
-    // Wait for initial session
-    await waitFor(() => {
-      expect(result.current.sessions).toHaveLength(1)
-    })
+      // Wait for initial session
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
 
-    await act(async () => {
-      await result.current.createSession('/test/one')
-      await result.current.createSession('/test/two')
-      await result.current.createSession('/test/three')
-    })
+      await act(async () => {
+        await result.current.createSession('/test/one')
+        await result.current.createSession('/test/two')
+        await result.current.createSession('/test/three')
+      })
 
-    const [initial, first, second, third] = result.current.sessions
+      const [initial, first, second, third] = result.current.sessions
 
-    // Make second tab active
-    act(() => {
-      result.current.setActiveSession(second.id)
-    })
+      // Make second tab active
+      act(() => {
+        result.current.setActiveSession(second.id)
+      })
 
-    // Close the second tab
-    act(() => {
-      result.current.closeSession(second.id)
-    })
+      // Close the second tab
+      act(() => {
+        result.current.closeSession(second.id)
+      })
 
-    // Should switch to what was third (now at same index)
-    expect(result.current.activeSessionId).toBe(third.id)
+      // Should switch to what was third (now at same index)
+      expect(result.current.activeSessionId).toBe(third.id)
+    } finally {
+      restoreDocumentHidden()
+    }
   })
 
   it('handles closing last session - quits the app', async () => {
@@ -192,30 +217,35 @@ describe('useSessions (SessionContext)', () => {
   })
 
   it('handles closing non-active session - keeps active session', async () => {
-    const { result } = renderHook(() => useSessionContext(), { wrapper })
+    const restoreDocumentHidden = forceDocumentHidden(true)
+    try {
+      const { result } = renderHook(() => useSessionContext(), { wrapper })
 
-    // Wait for initial session
-    await waitFor(() => {
-      expect(result.current.sessions).toHaveLength(1)
-    })
+      // Wait for initial session
+      await waitFor(() => {
+        expect(result.current.sessions).toHaveLength(1)
+      })
 
-    await act(async () => {
-      await result.current.createSession('/test/one')
-      await result.current.createSession('/test/two')
-    })
+      await act(async () => {
+        await result.current.createSession('/test/one')
+        await result.current.createSession('/test/two')
+      })
 
-    const [initial, first, second] = result.current.sessions
+      const [initial, first, second] = result.current.sessions
 
-    // second is active (last created)
-    expect(result.current.activeSessionId).toBe(second.id)
+      // second is active (last created)
+      expect(result.current.activeSessionId).toBe(second.id)
 
-    // Close the first (non-active) tab
-    act(() => {
-      result.current.closeSession(first.id)
-    })
+      // Close the first (non-active) tab
+      act(() => {
+        result.current.closeSession(first.id)
+      })
 
-    // Active should still be second
-    expect(result.current.activeSessionId).toBe(second.id)
+      // Active should still be second
+      expect(result.current.activeSessionId).toBe(second.id)
+    } finally {
+      restoreDocumentHidden()
+    }
   })
 
   it('generates unique IDs for each session', async () => {

@@ -16,6 +16,11 @@ vi.mock('@renderer/lib/eventDispatchers', () => ({
 }))
 
 describe('useInputWaiting', () => {
+  const flushAsync = async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  }
+
   beforeEach(() => {
     vi.clearAllMocks()
     handlers.clear()
@@ -28,7 +33,7 @@ describe('useInputWaiting', () => {
     vi.useRealTimers()
   })
 
-  it('polls only background sessions and marks idle claude/codex sessions as waiting', async () => {
+  it('polls only background sessions and marks prompt-hinted claude/codex sessions as waiting', async () => {
     window.electronAPI.pty.getForegroundProcess.mockImplementation(async (sessionId: string) => (
       sessionId === 's2' ? 'claude' : null
     ))
@@ -41,14 +46,13 @@ describe('useInputWaiting', () => {
     const { result } = renderHook(() => useInputWaiting(sessions, 's1'))
 
     await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
+      await flushAsync()
     })
 
     await act(async () => {
-      vi.advanceTimersByTime(3000)
-      await Promise.resolve()
-      await Promise.resolve()
+      handlers.get('s2')?.('Waiting for input. Please continue?')
+      vi.advanceTimersByTime(1500)
+      await flushAsync()
     })
 
     expect(result.current.has('s2')).toBe(true)
@@ -57,7 +61,29 @@ describe('useInputWaiting', () => {
     expect(window.electronAPI.pty.getForegroundProcess).not.toHaveBeenCalledWith('s1')
   })
 
-  it('does not mark waiting when there was recent output activity', async () => {
+  it('treats option-selection prompts as waiting hints', async () => {
+    window.electronAPI.pty.getForegroundProcess.mockResolvedValue('claude')
+    const sessions = [
+      { id: 's1', cwd: '/repo/one', name: 'one' },
+      { id: 's2', cwd: '/repo/two', name: 'two' },
+    ]
+
+    const { result } = renderHook(() => useInputWaiting(sessions, 's1'))
+
+    await act(async () => {
+      await flushAsync()
+    })
+
+    await act(async () => {
+      handlers.get('s2')?.('What would you like to do? Choose an option:')
+      vi.advanceTimersByTime(1500)
+      await flushAsync()
+    })
+
+    expect(result.current.has('s2')).toBe(true)
+  })
+
+  it('does not mark waiting during short idle without a prompt hint', async () => {
     window.electronAPI.pty.getForegroundProcess.mockResolvedValue('codex')
     const sessions = [
       { id: 's1', cwd: '/repo/one', name: 'one' },
@@ -67,13 +93,30 @@ describe('useInputWaiting', () => {
     const { result } = renderHook(() => useInputWaiting(sessions, 's1'))
 
     await act(async () => {
-      vi.advanceTimersByTime(2500)
-      handlers.get('s2')?.('new output')
-      vi.advanceTimersByTime(500)
-      await Promise.resolve()
+      vi.advanceTimersByTime(3000)
+      await flushAsync()
     })
 
     expect(result.current.has('s2')).toBe(false)
+  })
+
+  it('marks waiting after a longer fallback idle period even without prompt hints', async () => {
+    window.electronAPI.pty.getForegroundProcess.mockResolvedValue('codex')
+    const sessions = [
+      { id: 's1', cwd: '/repo/one', name: 'one' },
+      { id: 's2', cwd: '/repo/two', name: 'two' },
+    ]
+
+    const { result } = renderHook(() => useInputWaiting(sessions, 's1'))
+
+    await act(async () => {
+      for (let index = 0; index < 6; index += 1) {
+        vi.advanceTimersByTime(1500)
+        await flushAsync()
+      }
+    })
+
+    expect(result.current.has('s2')).toBe(true)
   })
 
   it('clears waiting state immediately when that tab becomes active', async () => {
@@ -89,14 +132,13 @@ describe('useInputWaiting', () => {
     )
 
     await act(async () => {
-      await Promise.resolve()
-      await Promise.resolve()
+      await flushAsync()
     })
 
     await act(async () => {
-      vi.advanceTimersByTime(3000)
-      await Promise.resolve()
-      await Promise.resolve()
+      handlers.get('s2')?.('Press enter to continue')
+      vi.advanceTimersByTime(1500)
+      await flushAsync()
     })
 
     expect(result.current.has('s2')).toBe(true)

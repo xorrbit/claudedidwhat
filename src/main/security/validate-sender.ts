@@ -1,6 +1,30 @@
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron'
 import { isTrustedRendererUrl } from './trusted-renderer'
 
+function isTopLevelFrame(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  if (!event.senderFrame || !event.sender.mainFrame) return false
+
+  // Prefer direct identity when available.
+  if (event.senderFrame === event.sender.mainFrame) return true
+
+  // Electron can surface distinct wrapper objects for the same frame,
+  // so fall back to stable frame identifiers.
+  const senderRoutingId = event.senderFrame.routingId
+  const mainRoutingId = event.sender.mainFrame.routingId
+  if (typeof senderRoutingId !== 'number' || typeof mainRoutingId !== 'number') {
+    return false
+  }
+  if (senderRoutingId !== mainRoutingId) return false
+
+  const senderProcessId = event.senderFrame.processId
+  const mainProcessId = event.sender.mainFrame.processId
+  if (typeof senderProcessId === 'number' && typeof mainProcessId === 'number') {
+    return senderProcessId === mainProcessId
+  }
+
+  return true
+}
+
 /**
  * Validate that an IPC message comes from a trusted origin.
  *
@@ -14,12 +38,13 @@ import { isTrustedRendererUrl } from './trusted-renderer'
  */
 export function validateIpcSender(event: IpcMainEvent | IpcMainInvokeEvent): boolean {
   try {
-    if (!event.senderFrame) return false
+    const senderFrame = event.senderFrame
+    if (!senderFrame) return false
 
     // Only allow calls from the top-level renderer frame.
-    if (event.senderFrame !== event.sender.mainFrame) return false
+    if (!isTopLevelFrame(event)) return false
 
-    const url = event.senderFrame.url
+    const url = senderFrame.url
     return isTrustedRendererUrl(url)
   } catch {
     // senderFrame destroyed, URL parsing failed, etc. — reject

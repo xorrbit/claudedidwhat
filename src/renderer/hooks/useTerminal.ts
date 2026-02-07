@@ -157,6 +157,10 @@ export function useTerminal({ sessionId, cwd, onExit }: UseTerminalOptions): Use
         if (isMod && e.key >= '1' && e.key <= '9') {
           return false
         }
+        // Let Ctrl/Cmd+? (usually Ctrl/Cmd+Shift+/) open the app help overlay.
+        if (isMod && (e.key === '?' || (e.key === '/' && e.shiftKey) || (e.code === 'Slash' && e.shiftKey))) {
+          return false
+        }
         return true // Let xterm handle everything else
       })
 

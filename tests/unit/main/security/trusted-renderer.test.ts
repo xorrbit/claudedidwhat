@@ -62,4 +62,9 @@ describe('isTrustedRendererUrl', () => {
     expect(isTrustedRendererFileUrl('file:///app/dist/renderer/index.html/extra')).toBe(false)
     expect(isTrustedRendererFileUrl('file:///app/dist/renderer/../../tmp/evil.html')).toBe(false)
   })
+
+  it('accepts renderer file URL when app path points at dist/main', () => {
+    mockGetAppPath.mockReturnValue('/app/dist/main')
+    expect(isTrustedRendererFileUrl('file:///app/dist/renderer/index.html')).toBe(true)
+  })
 })

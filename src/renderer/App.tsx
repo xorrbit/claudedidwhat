@@ -84,8 +84,10 @@ function AppContent() {
         setShowHelp(false)
       }
     }
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
+    // Capture phase ensures Escape is seen even when focused widgets (like xterm)
+    // intercept bubbling keydown events.
+    window.addEventListener('keydown', handleEscape, true)
+    return () => window.removeEventListener('keydown', handleEscape, true)
   }, [showHelp])
 
   useKeyboardShortcuts({

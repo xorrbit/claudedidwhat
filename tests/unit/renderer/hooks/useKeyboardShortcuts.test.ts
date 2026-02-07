@@ -163,6 +163,14 @@ describe('useKeyboardShortcuts', () => {
       expect(mockHandlers.onShowHelp).toHaveBeenCalledTimes(1)
     })
 
+    it('Ctrl+Shift+/ triggers onShowHelp when provided', () => {
+      renderHook(() => useKeyboardShortcuts(mockHandlers))
+
+      dispatchKeyDown('/', { ctrlKey: true, shiftKey: true, code: 'Slash' })
+
+      expect(mockHandlers.onShowHelp).toHaveBeenCalledTimes(1)
+    })
+
     it('Ctrl+? does not throw when onShowHelp is not provided', () => {
       const { onShowHelp, ...handlersWithoutHelp } = mockHandlers
 

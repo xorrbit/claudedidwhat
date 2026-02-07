@@ -2,8 +2,37 @@ import { useEffect, useRef, useState } from 'react'
 import { Session } from '@shared/types'
 import { subscribePtyData } from '../lib/eventDispatchers'
 
-const OUTPUT_IDLE_THRESHOLD_MS = 2000
-const FOREGROUND_POLL_INTERVAL_MS = 3000
+const PROMPT_IDLE_THRESHOLD_MS = 700
+const FALLBACK_IDLE_THRESHOLD_MS = 8000
+const PROMPT_HINT_MAX_AGE_MS = 20000
+const FOREGROUND_POLL_INTERVAL_MS = 1500
+
+const INPUT_PROMPT_PATTERNS = [
+  /\b(?:waiting|awaiting)\s+for\s+(?:your\s+)?(?:input|response|reply)\b/i,
+  /\b(?:press|hit|type|enter|provide)\b.{0,40}\b(?:input|response|reply|continue|confirm|send|submit)\b/i,
+  /\bwhat\s+would\s+you\s+like\s+to\s+do\??\b/i,
+  /\b(?:choose|select)\s+(?:an?\s+)?option\b/i,
+  /\b(?:yes\/no|y\/n)\b/i,
+  /\bcontinue\?\s*$/im,
+]
+
+// Strip ANSI control sequences to make text matching robust across colorized output.
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex -- terminal control sequences intentionally use control chars
+  return text.replace(/\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, '')
+}
+
+function hasVisibleText(text: string): boolean {
+  return text.trim().length > 0
+}
+
+function normalizeOutputForMatching(data: string): string {
+  return stripAnsi(data).replace(/\r/g, '')
+}
+
+function hasInputPromptHint(normalizedOutput: string): boolean {
+  return INPUT_PROMPT_PATTERNS.some((pattern) => pattern.test(normalizedOutput))
+}
 
 function setsAreEqual(left: Set<string>, right: Set<string>): boolean {
   if (left.size !== right.size) return false
@@ -19,6 +48,7 @@ export function useInputWaiting(
 ): Set<string> {
   const [waitingIds, setWaitingIds] = useState<Set<string>>(new Set())
   const lastOutputTime = useRef<Map<string, number>>(new Map())
+  const lastPromptHintTime = useRef<Map<string, number>>(new Map())
   const sessionIdsKey = sessions.map((session) => session.id).join('\0')
 
   useEffect(() => {
@@ -35,6 +65,7 @@ export function useInputWaiting(
     for (const sessionId of Array.from(lastOutputTime.current.keys())) {
       if (!activeIds.has(sessionId)) {
         lastOutputTime.current.delete(sessionId)
+        lastPromptHintTime.current.delete(sessionId)
       }
     }
 
@@ -52,8 +83,20 @@ export function useInputWaiting(
   useEffect(() => {
     const sessionIds = sessionIdsKey ? sessionIdsKey.split('\0') : []
     const unsubscribers = sessionIds.map((sessionId) =>
-      subscribePtyData(sessionId, () => {
-        lastOutputTime.current.set(sessionId, Date.now())
+      subscribePtyData(sessionId, (data) => {
+        const now = Date.now()
+        lastOutputTime.current.set(sessionId, now)
+        const normalizedData = normalizeOutputForMatching(data)
+
+        if (hasInputPromptHint(normalizedData)) {
+          lastPromptHintTime.current.set(sessionId, now)
+          return
+        }
+
+        if (hasVisibleText(normalizedData)) {
+          // Any non-prompt output means the previous prompt hint is stale.
+          lastPromptHintTime.current.delete(sessionId)
+        }
       })
     )
 
@@ -97,10 +140,22 @@ export function useInputWaiting(
         const nextWaitingIds = new Set<string>()
         for (const { sessionId, processName } of foregroundProcesses) {
           const isAiForeground = processName === 'claude' || processName === 'codex'
-          if (!isAiForeground) continue
+          if (!isAiForeground) {
+            lastPromptHintTime.current.delete(sessionId)
+            continue
+          }
 
           const lastOutput = lastOutputTime.current.get(sessionId) ?? now
-          if (now - lastOutput >= OUTPUT_IDLE_THRESHOLD_MS) {
+          const lastPromptHint = lastPromptHintTime.current.get(sessionId)
+          const hasFreshPromptHint = (
+            typeof lastPromptHint === 'number' &&
+            now - lastPromptHint <= PROMPT_HINT_MAX_AGE_MS
+          )
+          const idleThreshold = hasFreshPromptHint
+            ? PROMPT_IDLE_THRESHOLD_MS
+            : FALLBACK_IDLE_THRESHOLD_MS
+
+          if (now - lastOutput >= idleThreshold) {
             nextWaitingIds.add(sessionId)
           }
         }

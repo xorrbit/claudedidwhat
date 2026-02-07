@@ -98,7 +98,7 @@ const BASE_EDITOR_OPTIONS = {
 }
 
 // Pre-computed per-mode options (stable references for memoization)
-const OPTIONS_AUTO = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true }
+const OPTIONS_AUTO = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false }
 const OPTIONS_UNIFIED = { ...BASE_EDITOR_OPTIONS, renderSideBySide: false }
 const OPTIONS_SPLIT = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false }
 

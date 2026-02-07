@@ -82,7 +82,7 @@ describe('ResizableSplit', () => {
       <ResizableSplit left={<div>Left</div>} right={<div>Right</div>} />
     )
 
-    const divider = container.querySelector('.cursor-col-resize')
+    const divider = container.querySelector('.cursor-ew-resize')
     expect(divider).toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('ResizableSplit', () => {
       <ResizableSplit left={<div>Left</div>} right={<div>Right</div>} />
     )
 
-    const divider = container.querySelector('.cursor-col-resize')!
+    const divider = container.querySelector('.cursor-ew-resize')!
     expect(divider.className).toContain('w-0.5')
   })
 })

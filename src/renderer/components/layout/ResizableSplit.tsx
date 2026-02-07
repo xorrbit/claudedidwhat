@@ -37,7 +37,7 @@ export function ResizableSplit({
       {/* Divider */}
       <div
         className={`
-          relative w-px cursor-col-resize flex-shrink-0 group
+          relative w-px cursor-ew-resize flex-shrink-0 group
           ${isDragging ? 'w-0.5' : ''}
         `}
         onMouseDown={handleMouseDown}
@@ -53,7 +53,7 @@ export function ResizableSplit({
         `} />
 
         {/* Hover/drag indicator - wider hit area */}
-        <div className="absolute inset-y-0 -left-1.5 w-3 cursor-col-resize" />
+        <div className="absolute inset-y-0 -left-1.5 w-3 cursor-ew-resize" />
 
         {/* Grab handle indicator on hover */}
         <div className={`

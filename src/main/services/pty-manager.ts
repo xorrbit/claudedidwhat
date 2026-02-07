@@ -49,47 +49,51 @@ function normalizeProcessName(arg: string | undefined): string | null {
   return basename(trimmed).toLowerCase()
 }
 
-function matchAIProcess(command: string): string | null {
-  if (!command) return null
-  const args = command
-    .split('\0')
-    .map((arg) => arg.trim())
-    .filter((arg) => arg.length > 0)
+function matchAIProcessFromArgv(args: string[]): string | null {
   if (args.length === 0) return null
 
-  const first = normalizeProcessName(args[0])
-  if (first && AI_PROCESS_NAME_SET.has(first)) {
+  const normalized = args
+    .map((arg) => normalizeProcessName(arg))
+    .filter((arg): arg is string => Boolean(arg))
+  if (normalized.length === 0) return null
+
+  const first = normalized[0]
+  if (AI_PROCESS_NAME_SET.has(first)) {
     return first
   }
 
   if (first === 'node' || first === 'nodejs') {
-    const second = normalizeProcessName(args[1])
-    if (second && AI_PROCESS_NAME_SET.has(second)) {
-      return second
+    for (let index = 1; index < normalized.length; index += 1) {
+      const arg = normalized[index]
+      if (AI_PROCESS_NAME_SET.has(arg)) {
+        return arg
+      }
+    }
+  }
+
+  // Wrapper launches such as "env ... codex" can put the assistant binary later.
+  for (const arg of normalized) {
+    if (AI_PROCESS_NAME_SET.has(arg)) {
+      return arg
     }
   }
 
   return null
 }
 
+function matchAIProcess(command: string): string | null {
+  if (!command) return null
+  const args = command
+    .split('\0')
+    .map((arg) => arg.trim())
+    .filter((arg) => arg.length > 0)
+  return matchAIProcessFromArgv(args)
+}
+
 function matchAIProcessFromPsArgs(command: string): string | null {
   if (!command) return null
   const args = command.trim().split(/\s+/).filter((arg) => arg.length > 0)
-  if (args.length === 0) return null
-
-  const first = normalizeProcessName(args[0])
-  if (first && AI_PROCESS_NAME_SET.has(first)) {
-    return first
-  }
-
-  if (first === 'node' || first === 'nodejs') {
-    const second = normalizeProcessName(args[1])
-    if (second && AI_PROCESS_NAME_SET.has(second)) {
-      return second
-    }
-  }
-
-  return null
+  return matchAIProcessFromArgv(args)
 }
 
 function parseLinuxTpgid(statContent: string): number | null {
@@ -410,11 +414,6 @@ export class PtyManager {
     }
 
     if (os === 'darwin') {
-      const processName = normalizeProcessName(instance.pty.process)
-      if (processName !== 'node' && processName !== 'nodejs') {
-        return null
-      }
-
       const cached = this.foregroundProcessCache.get(sessionId)
       if (cached && Date.now() - cached.timestamp < PtyManager.FOREGROUND_PROCESS_CACHE_TTL) {
         return cached.processName

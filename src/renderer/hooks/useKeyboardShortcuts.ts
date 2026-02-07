@@ -19,6 +19,12 @@ export function useKeyboardShortcuts({
   onShowHelp,
   onTabSwitched,
 }: KeyboardShortcutsOptions): void {
+  const isHelpShortcut = (event: KeyboardEvent): boolean => {
+    if (event.key === '?') return true
+    if (event.key === '/' && event.shiftKey) return true
+    return event.code === 'Slash' && event.shiftKey
+  }
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -62,7 +68,7 @@ export function useKeyboardShortcuts({
       }
 
       // Cmd/Ctrl + ?: Show help
-      if (isMod && e.key === '?' && onShowHelp) {
+      if (isMod && isHelpShortcut(e) && onShowHelp) {
         e.preventDefault()
         onShowHelp()
         return

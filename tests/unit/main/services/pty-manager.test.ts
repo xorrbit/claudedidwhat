@@ -411,6 +411,20 @@ describe('PtyManager', () => {
       expect(mockReadFileSync).toHaveBeenCalledWith('/proc/23456/cmdline', 'utf8')
     })
 
+    it('detects codex in Linux foreground process cmdline when launched via wrapper', async () => {
+      manager.spawn('session-1', '/home/user')
+      getPtyMock().process = 'bash'
+      mockPlatform.mockReturnValue('linux')
+      mockReadFileSync
+        .mockReturnValueOnce(
+          '12345 (bash) S 120 12345 12345 34816 23456 0 0 0 0 0 0 0 0 20 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+        )
+        .mockReturnValueOnce('/usr/bin/env\0FOO=bar\0/usr/local/bin/codex\0')
+
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
+      expect(mockReadFileSync).toHaveBeenCalledWith('/proc/23456/cmdline', 'utf8')
+    })
+
     it('returns null when Linux proc lookup fails', async () => {
       manager.spawn('session-1', '/home/user')
       getPtyMock().process = 'node'
@@ -444,14 +458,21 @@ describe('PtyManager', () => {
       )
     })
 
-    it('does not run ps fallback on macOS when foreground is not node/nodejs', async () => {
+    it('runs macOS ps fallback even when node-pty process name is not node/nodejs', async () => {
       mockPlatform.mockReturnValue('darwin')
       manager = new PtyManager()
       manager.spawn('session-1', '/home/user')
       getPtyMock().process = 'zsh'
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '23456\n' })
+        .mockResolvedValueOnce({ stdout: '/usr/local/bin/codex --model gpt-5\n' })
 
-      await expect(manager.getForegroundProcess('session-1')).resolves.toBeNull()
-      expect(mockExecAsync).not.toHaveBeenCalled()
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
+      expect(mockExecAsync).toHaveBeenCalledWith(
+        'ps',
+        ['-o', 'tpgid=', '-p', '12345'],
+        { timeout: 2000 }
+      )
     })
 
     it('caches macOS ps fallback results briefly', async () => {

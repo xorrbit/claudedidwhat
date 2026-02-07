@@ -54,12 +54,14 @@ export function MonacoDiffEditor({
   configureMonaco()
 
   return (
-    <DiffEditor
-      original={original}
-      modified={modified}
-      language={language}
-      theme={DIFF_THEME}
-      options={options}
-    />
+    <div className="h-full monaco-editor">
+      <DiffEditor
+        original={original}
+        modified={modified}
+        language={language}
+        theme={DIFF_THEME}
+        options={options}
+      />
+    </div>
   )
 }

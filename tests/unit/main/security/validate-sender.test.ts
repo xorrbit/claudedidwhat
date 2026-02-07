@@ -30,6 +30,27 @@ function makeFakeEvent(url: string, options?: { isMainFrame?: boolean }) {
   } as any
 }
 
+function makeFakeEventWithFrameIds(
+  url: string,
+  sender: { routingId: number; processId: number },
+  main: { routingId: number; processId: number }
+) {
+  return {
+    senderFrame: {
+      url,
+      routingId: sender.routingId,
+      processId: sender.processId,
+    },
+    sender: {
+      mainFrame: {
+        url,
+        routingId: main.routingId,
+        processId: main.processId,
+      },
+    },
+  } as any
+}
+
 describe('validateIpcSender', () => {
   beforeEach(() => {
     mockIsPackaged.value = false
@@ -96,6 +117,26 @@ describe('validateIpcSender', () => {
     it('rejects non-main-frame senders', () => {
       process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173'
       const event = makeFakeEvent('http://localhost:5173/', { isMainFrame: false })
+      expect(validateIpcSender(event)).toBe(false)
+    })
+
+    it('accepts same frame when wrapper identity differs but ids match', () => {
+      process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173'
+      const event = makeFakeEventWithFrameIds(
+        'http://localhost:5173/',
+        { routingId: 10, processId: 100 },
+        { routingId: 10, processId: 100 }
+      )
+      expect(validateIpcSender(event)).toBe(true)
+    })
+
+    it('rejects frame id mismatch even when URL is trusted', () => {
+      process.env.VITE_DEV_SERVER_URL = 'http://localhost:5173'
+      const event = makeFakeEventWithFrameIds(
+        'http://localhost:5173/',
+        { routingId: 10, processId: 100 },
+        { routingId: 11, processId: 100 }
+      )
       expect(validateIpcSender(event)).toBe(false)
     })
 
