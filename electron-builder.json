@@ -1,6 +1,7 @@
 {
   "appId": "com.claudedidwhat.app",
   "productName": "claudedidwhat",
+  "artifactName": "${productName}-${version}-${arch}.${ext}",
   "directories": {
     "output": "release"
   },
