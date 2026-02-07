@@ -14,8 +14,12 @@ jobs:
             platform: mac
           - os: ubuntu-latest
             platform: linux
+          - os: ubuntu-24.04-arm
+            platform: linux-arm64
           - os: windows-latest
             platform: win
+          - os: windows-11-arm
+            platform: win-arm64
 
     runs-on: ${{ matrix.os }}
 
