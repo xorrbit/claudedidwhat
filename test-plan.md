@@ -4,6 +4,8 @@
 Document current test coverage gaps and define specific tests to add. This file is planning only. No test implementation work is included.
 
 ## Progress (2026-02-07)
+Status: `Complete` (all listed gap implementations landed; remaining E2E launchability is environment-specific).
+
 - Completed:
   - Gap 1: Added main-process lifecycle/security tests:
     - `tests/unit/main/index.test.ts`
@@ -41,20 +43,24 @@ Document current test coverage gaps and define specific tests to add. This file 
     - `tests/unit/renderer/hooks/useSessions.test.tsx` (expanded)
     - `src/renderer/context/SessionContext.tsx` (small no-churn update for unchanged session names on `onCwdChanged`)
     - Covered: home-dir fallback, hidden-tab poll suppression, visibility-triggered refresh, `onCwdChanged` map/name updates, unchanged-value no-op behavior.
-- In progress:
-  - `2026-02-07` verification run:
+- Verification Notes:
+  - `2026-02-07` test runs:
     - `npm run test:unit` passed (`36` files, `481` tests).
-    - `ELECTRON_TEST=1 npm run test:e2e` skips locally when launch prerequisites are unavailable (expected outside configured Electron E2E profile).
-    - `CI=1 ELECTRON_TEST=1` now fails fast with explicit prerequisite diagnostics from `tests/e2e/electron.ts` (example in this environment: `spawnSync ... EPERM`), rather than a generic launch failure.
-  - `2026-02-07` coverage follow-up:
+    - `npm run test:e2e` skips locally when launch prerequisites are unavailable (expected outside configured Electron E2E profile).
+    - `ELECTRON_TEST=1 npm run test:e2e` also skips in this environment due runtime launch constraints.
+    - `CI=1 ELECTRON_TEST=1` fails fast with explicit prerequisite diagnostics from `tests/e2e/electron.ts` (example in this environment: `spawnSync ... EPERM`), replacing generic launch failures.
+  - `2026-02-07` coverage verification:
     - Updated `vitest.config.ts` coverage filters to include `src/main/**/*` (removed exclusion).
     - Added domain thresholds:
       - `src/main/security/**` highest threshold.
       - `src/main/ipc/**` high threshold.
       - `src/renderer/components/**` moderate threshold.
-    - Installed `@vitest/coverage-v8` and verified coverage run passes with thresholds:
-      - `node scripts/run-vitest.cjs --coverage` passed (`36` files, `481` tests).
-      - Overall coverage snapshot: `Statements 88.13%`, `Branches 76.83%`, `Functions 88.58%`, `Lines 90.86%`.
+    - Installed `@vitest/coverage-v8`.
+    - `node scripts/run-vitest.cjs --coverage` passed (`36` files, `481` tests):
+      - `Statements 88.13%`
+      - `Branches 76.83%`
+      - `Functions 88.58%`
+      - `Lines 90.86%`
 
 ## Current Coverage Snapshot
 - Unit tests are concentrated in renderer hooks/components and main service classes.
