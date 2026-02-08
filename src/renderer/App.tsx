@@ -9,6 +9,7 @@ import { EmptyState } from './components/common/EmptyState'
 import { HelpOverlay } from './components/common/HelpOverlay'
 import { ConfirmDialog } from './components/common/ConfirmDialog'
 import { SettingsModal } from './components/common/SettingsModal'
+import type { DiffViewMode } from './components/diff/DiffView'
 
 function AppContent() {
   const {
@@ -32,6 +33,18 @@ function AppContent() {
     const stored = localStorage.getItem('cdw-ui-scale')
     return stored ? parseFloat(stored) : 1.0
   })
+
+  // Diff view mode (persisted to localStorage)
+  const [diffViewMode, setDiffViewMode] = useState<DiffViewMode>(() => {
+    const stored = localStorage.getItem('cdw-diff-view-mode')
+    return (stored === 'unified' || stored === 'split' || stored === 'auto') ? stored : 'unified'
+  })
+
+  const handleDiffViewModeChange = useCallback((mode: DiffViewMode) => {
+    setDiffViewMode(mode)
+    localStorage.setItem('cdw-diff-view-mode', mode)
+    window.dispatchEvent(new CustomEvent('diff-view-mode-change', { detail: { mode } }))
+  }, [])
 
   const handleUiScaleChange = useCallback((scale: number) => {
     setUiScale(scale)
@@ -221,6 +234,8 @@ function AppContent() {
         onClose={() => setShowSettings(false)}
         uiScale={uiScale}
         onUiScaleChange={handleUiScaleChange}
+        diffViewMode={diffViewMode}
+        onDiffViewModeChange={handleDiffViewModeChange}
         automationEnabled={automationEnabled}
         onAutomationToggle={handleAutomationToggle}
       />

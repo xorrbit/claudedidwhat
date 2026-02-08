@@ -53,6 +53,7 @@ describe('DiffPanel', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     mockUseGitDiff.mockReturnValue({ ...defaultGitDiff })
   })
 
@@ -238,6 +239,33 @@ describe('DiffPanel', () => {
       fireEvent.click(screen.getByTitle('View: Automatic'))
       expect(screen.getByTestId('mock-diff-view')).toHaveAttribute('data-view-mode', 'unified')
       expect(onFocusTerminal).toHaveBeenCalledTimes(3)
+    })
+
+    it('initializes diff view mode from localStorage', () => {
+      localStorage.setItem('cdw-diff-view-mode', 'split')
+      mockUseGitDiff.mockReturnValue({
+        ...defaultGitDiff,
+        selectedFile: 'src/main.ts',
+        diffContent: { original: 'old', modified: 'new' },
+      })
+
+      render(<DiffPanel sessionId="s1" cwd="/project" />)
+
+      expect(screen.getByTestId('mock-diff-view')).toHaveAttribute('data-view-mode', 'split')
+    })
+
+    it('persists diff view mode to localStorage on cycle', () => {
+      mockUseGitDiff.mockReturnValue({
+        ...defaultGitDiff,
+        selectedFile: 'src/main.ts',
+        diffContent: { original: 'old', modified: 'new' },
+      })
+
+      render(<DiffPanel sessionId="s1" cwd="/project" />)
+
+      fireEvent.click(screen.getByTitle('View: Unified'))
+
+      expect(localStorage.getItem('cdw-diff-view-mode')).toBe('split')
     })
 
     it('copies selected file path and filename to clipboard', () => {

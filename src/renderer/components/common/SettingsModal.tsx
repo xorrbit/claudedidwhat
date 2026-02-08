@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import logoPng from '../../../../resources/icon.png'
+import type { DiffViewMode } from '../diff/DiffView'
 
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
   uiScale: number
   onUiScaleChange: (scale: number) => void
+  diffViewMode: DiffViewMode
+  onDiffViewModeChange: (mode: DiffViewMode) => void
   automationEnabled: boolean
   onAutomationToggle: (enabled: boolean) => Promise<void>
 }
@@ -16,7 +19,7 @@ const SCALE_STEP = 0.05
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
 
-export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, automationEnabled, onAutomationToggle }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffViewMode, onDiffViewModeChange, automationEnabled, onAutomationToggle }: SettingsModalProps) {
   const [confirmingApi, setConfirmingApi] = useState(false)
   const [apiToggling, setApiToggling] = useState(false)
 
@@ -176,6 +179,37 @@ export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, autom
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-obsidian-border-subtle" />
+
+          {/* Diff View Mode */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium text-obsidian-text">Default Diff View</span>
+                <p className="text-xs text-obsidian-text-ghost mt-0.5">Layout for viewing file changes</p>
+              </div>
+              <div className="flex items-center rounded-lg border border-obsidian-border-subtle overflow-hidden">
+                {([['unified', 'Unified'], ['split', 'Split'], ['auto', 'Auto']] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    className={`
+                      px-3 py-1.5 text-xs font-medium transition-all duration-200
+                      ${diffViewMode === mode
+                        ? 'bg-obsidian-accent/15 text-obsidian-accent'
+                        : 'text-obsidian-text-secondary hover:text-obsidian-text hover:bg-obsidian-float'
+                      }
+                    `}
+                    onClick={() => onDiffViewModeChange(mode)}
+                    title={`Set diff view to ${label}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Divider */}

@@ -8,6 +8,8 @@ describe('SettingsModal', () => {
     onClose: vi.fn(),
     uiScale: 1.0,
     onUiScaleChange: vi.fn(),
+    diffViewMode: 'unified' as const,
+    onDiffViewModeChange: vi.fn(),
     automationEnabled: false,
     onAutomationToggle: vi.fn().mockResolvedValue(undefined),
   }
@@ -108,6 +110,58 @@ describe('SettingsModal', () => {
       fireEvent.click(screen.getByText('Reset to 100%'))
 
       expect(onUiScaleChange).toHaveBeenCalledWith(1.0)
+    })
+  })
+
+  describe('Diff view mode selector', () => {
+    it('displays "Default Diff View" label', () => {
+      render(<SettingsModal {...defaultProps} />)
+      expect(screen.getByText('Default Diff View')).toBeInTheDocument()
+    })
+
+    it('highlights the current mode (unified)', () => {
+      render(<SettingsModal {...defaultProps} diffViewMode="unified" />)
+      const unifiedButton = screen.getByTitle('Set diff view to Unified')
+      expect(unifiedButton.className).toContain('bg-obsidian-accent')
+    })
+
+    it('highlights the current mode (split)', () => {
+      render(<SettingsModal {...defaultProps} diffViewMode="split" />)
+      const splitButton = screen.getByTitle('Set diff view to Split')
+      expect(splitButton.className).toContain('bg-obsidian-accent')
+    })
+
+    it('highlights the current mode (auto)', () => {
+      render(<SettingsModal {...defaultProps} diffViewMode="auto" />)
+      const autoButton = screen.getByTitle('Set diff view to Auto')
+      expect(autoButton.className).toContain('bg-obsidian-accent')
+    })
+
+    it('clicking Unified calls onDiffViewModeChange("unified")', () => {
+      const onDiffViewModeChange = vi.fn()
+      render(<SettingsModal {...defaultProps} diffViewMode="split" onDiffViewModeChange={onDiffViewModeChange} />)
+
+      fireEvent.click(screen.getByTitle('Set diff view to Unified'))
+
+      expect(onDiffViewModeChange).toHaveBeenCalledWith('unified')
+    })
+
+    it('clicking Split calls onDiffViewModeChange("split")', () => {
+      const onDiffViewModeChange = vi.fn()
+      render(<SettingsModal {...defaultProps} diffViewMode="unified" onDiffViewModeChange={onDiffViewModeChange} />)
+
+      fireEvent.click(screen.getByTitle('Set diff view to Split'))
+
+      expect(onDiffViewModeChange).toHaveBeenCalledWith('split')
+    })
+
+    it('clicking Auto calls onDiffViewModeChange("auto")', () => {
+      const onDiffViewModeChange = vi.fn()
+      render(<SettingsModal {...defaultProps} diffViewMode="unified" onDiffViewModeChange={onDiffViewModeChange} />)
+
+      fireEvent.click(screen.getByTitle('Set diff view to Auto'))
+
+      expect(onDiffViewModeChange).toHaveBeenCalledWith('auto')
     })
   })
 
