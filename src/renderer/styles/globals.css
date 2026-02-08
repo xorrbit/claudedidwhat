@@ -198,6 +198,12 @@ body {
   direction: ltr;
 }
 
+/* Move xterm's custom scrollbar from right to left */
+.xterm-container .xterm-scrollable-element > .scrollbar.vertical {
+  right: auto !important;
+  left: 0 !important;
+}
+
 /* Prevent text selection during resize */
 .resizing {
   user-select: none;
