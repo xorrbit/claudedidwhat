@@ -177,6 +177,7 @@ function AppContent() {
   const handleAutomationToggle = useCallback(async (enabled: boolean) => {
     const status = await window.electronAPI.automation.setEnabled(enabled)
     setAutomationEnabled(status.enabled)
+    return status
   }, [])
 
   const handleShowHelp = useCallback(() => setShowHelp(true), [])

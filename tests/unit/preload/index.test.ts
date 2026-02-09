@@ -71,7 +71,7 @@ describe('preload electronAPI bridge', () => {
     await api.grammar.scan()
     await api.grammar.getOnigWasm()
 
-    api.terminal.showContextMenu(true, 'selected text')
+    api.terminal.showContextMenu('s1', true, 'selected text')
     await api.shell.openExternal('https://example.com')
     api.window.minimize()
     api.window.maximize()
@@ -105,7 +105,7 @@ describe('preload electronAPI bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith(GRAMMAR_CHANNELS.SCAN)
     expect(mockInvoke).toHaveBeenCalledWith(GRAMMAR_CHANNELS.GET_ONIG_WASM)
 
-    expect(mockSend).toHaveBeenCalledWith(TERMINAL_MENU_CHANNELS.SHOW, true, 'selected text')
+    expect(mockSend).toHaveBeenCalledWith(TERMINAL_MENU_CHANNELS.SHOW, 's1', true, 'selected text')
     expect(mockInvoke).toHaveBeenCalledWith('shell:openExternal', 'https://example.com')
     expect(mockSend).toHaveBeenCalledWith('window:minimize')
     expect(mockSend).toHaveBeenCalledWith('window:maximize')
@@ -158,14 +158,14 @@ describe('preload electronAPI bridge', () => {
     exitListener({}, 's1', 130)
     cwdListener({}, 's1', '/repo/new')
     fileListener({}, { sessionId: 's1', type: 'change', path: 'src/a.ts' })
-    menuListener({}, 'copy')
+    menuListener({}, 's1', 'copy')
     bootstrapListener({}, { requestId: 'session-1', cwd: '/repo', commands: ['echo hello'] })
 
     expect(ptyDataCb).toHaveBeenCalledWith('s1', 'output')
     expect(ptyExitCb).toHaveBeenCalledWith('s1', 130)
     expect(cwdCb).toHaveBeenCalledWith('s1', '/repo/new')
     expect(fileChangedCb).toHaveBeenCalledWith({ sessionId: 's1', type: 'change', path: 'src/a.ts' })
-    expect(contextMenuCb).toHaveBeenCalledWith('copy')
+    expect(contextMenuCb).toHaveBeenCalledWith('s1', 'copy')
     expect(bootstrapCb).toHaveBeenCalledWith({
       requestId: 'session-1',
       cwd: '/repo',

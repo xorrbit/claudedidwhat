@@ -10,7 +10,7 @@ interface SettingsModalProps {
   diffViewMode: DiffViewMode
   onDiffViewModeChange: (mode: DiffViewMode) => void
   automationEnabled: boolean
-  onAutomationToggle: (enabled: boolean) => Promise<void>
+  onAutomationToggle: (enabled: boolean) => Promise<{ error?: string; configPath?: string } | void>
 }
 
 const SCALE_MIN = 0.75
@@ -22,6 +22,7 @@ const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('M
 export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffViewMode, onDiffViewModeChange, automationEnabled, onAutomationToggle }: SettingsModalProps) {
   const [confirmingApi, setConfirmingApi] = useState(false)
   const [apiToggling, setApiToggling] = useState(false)
+  const [apiErrorConfigPath, setApiErrorConfigPath] = useState<string | null>(null)
 
   if (!isOpen) return null
 
@@ -55,7 +56,13 @@ export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffV
   const handleApiConfirm = () => {
     setConfirmingApi(false)
     setApiToggling(true)
-    onAutomationToggle(true).finally(() => setApiToggling(false))
+    onAutomationToggle(true)
+      .then((status) => {
+        if (status?.error === 'no_allowed_roots' && status.configPath) {
+          setApiErrorConfigPath(status.configPath)
+        }
+      })
+      .finally(() => setApiToggling(false))
   }
 
   const handleApiCancel = () => {
@@ -274,6 +281,39 @@ export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffV
                         onClick={handleApiCancel}
                       >
                         Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* No allowedRoots error */}
+            {apiErrorConfigPath && (
+              <div className="mt-3 p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                <div className="flex items-start gap-2.5">
+                  <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs font-medium text-red-400">
+                      Configuration required
+                    </p>
+                    <p className="text-xs text-obsidian-text-secondary leading-relaxed mt-1">
+                      You must configure at least one <span className="font-mono text-obsidian-text">allowedRoots</span> path before enabling the API. Edit your config file and add the directories that the API is allowed to access:
+                    </p>
+                    <div className="mt-2 px-2.5 py-1.5 rounded bg-obsidian-void/50 border border-obsidian-border-subtle">
+                      <code className="text-[11px] text-obsidian-text-secondary break-all select-all">{apiErrorConfigPath}</code>
+                    </div>
+                    <p className="text-xs text-obsidian-text-ghost mt-2 leading-relaxed">
+                      Example: <span className="font-mono text-obsidian-text-ghost">{'"allowedRoots": ["/home/user/projects"]'}</span>
+                    </p>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        className="px-3 py-1.5 text-xs font-medium text-obsidian-text-secondary hover:text-obsidian-text rounded-md hover:bg-obsidian-hover transition-colors"
+                        onClick={() => setApiErrorConfigPath(null)}
+                      >
+                        Dismiss
                       </button>
                     </div>
                   </div>

@@ -69,6 +69,8 @@ export interface AutomationApiCredentials {
 
 export interface AutomationApiStatus {
   enabled: boolean
+  error?: string
+  configPath?: string
 }
 
 const DEFAULT_AUTOMATION_CONFIG: AutomationApiConfig = {
@@ -189,6 +191,15 @@ export class AutomationApiService {
   async setEnabled(enabled: boolean): Promise<AutomationApiStatus> {
     if (enabled === this.getStatus().enabled) {
       return this.getStatus()
+    }
+
+    // Require at least one allowedRoot before enabling
+    if (enabled && this.config.allowedRoots.length === 0) {
+      return {
+        enabled: false,
+        error: 'no_allowed_roots',
+        configPath: this.getConfigPath(),
+      }
     }
 
     // Update config on disk

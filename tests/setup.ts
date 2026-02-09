@@ -86,6 +86,20 @@ Object.defineProperty(window, 'electronAPI', {
   writable: true,
 })
 
+// Mock localStorage (jsdom may not provide working methods)
+const localStorageStore = new Map<string, string>()
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    getItem: (key: string) => localStorageStore.get(key) ?? null,
+    setItem: (key: string, value: string) => localStorageStore.set(key, String(value)),
+    removeItem: (key: string) => localStorageStore.delete(key),
+    clear: () => localStorageStore.clear(),
+    get length() { return localStorageStore.size },
+    key: (index: number) => [...localStorageStore.keys()][index] ?? null,
+  },
+  writable: true,
+})
+
 // Mock ResizeObserver
 class MockResizeObserver {
   observe = vi.fn()

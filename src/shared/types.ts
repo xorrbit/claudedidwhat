@@ -100,6 +100,8 @@ export interface AutomationBootstrapResult {
 
 export interface AutomationStatus {
   enabled: boolean
+  error?: string
+  configPath?: string
 }
 
 // Grammar types
