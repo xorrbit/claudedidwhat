@@ -67,6 +67,7 @@ describe('preload electronAPI bridge', () => {
     await api.fs.watchStop('s1')
     await api.fs.selectDirectory()
     await api.fs.getHomeDir()
+    await api.fs.listSubdirectories('/projects')
 
     await api.grammar.scan()
     await api.grammar.getOnigWasm()
@@ -101,6 +102,7 @@ describe('preload electronAPI bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith(FS_CHANNELS.WATCH_STOP, 's1')
     expect(mockInvoke).toHaveBeenCalledWith(FS_CHANNELS.SELECT_DIRECTORY)
     expect(mockInvoke).toHaveBeenCalledWith(FS_CHANNELS.GET_HOME_DIR)
+    expect(mockInvoke).toHaveBeenCalledWith(FS_CHANNELS.LIST_SUBDIRECTORIES, '/projects')
 
     expect(mockInvoke).toHaveBeenCalledWith(GRAMMAR_CHANNELS.SCAN)
     expect(mockInvoke).toHaveBeenCalledWith(GRAMMAR_CHANNELS.GET_ONIG_WASM)

@@ -7,12 +7,14 @@ const {
   mockWatch,
   mockUnwatch,
   mockHomedir,
+  mockReaddir,
 } = vi.hoisted(() => ({
   mockValidateIpcSender: vi.fn(() => true),
   mockSendToRenderer: vi.fn(),
   mockWatch: vi.fn(),
   mockUnwatch: vi.fn(),
   mockHomedir: vi.fn(() => '/home/mock'),
+  mockReaddir: vi.fn(),
 }))
 
 vi.mock('@main/security/validate-sender', () => ({
@@ -26,6 +28,11 @@ vi.mock('@main/index', () => ({
 vi.mock('os', () => ({
   homedir: mockHomedir,
   default: { homedir: mockHomedir },
+}))
+
+vi.mock('fs/promises', () => ({
+  default: { readdir: mockReaddir },
+  readdir: mockReaddir,
 }))
 
 vi.mock('@main/services/watcher', () => ({
@@ -68,6 +75,9 @@ describe('registerFsHandlers', () => {
     ).rejects.toThrow('Unauthorized IPC sender')
     expect(() => handles.get(FS_CHANNELS.GET_HOME_DIR)!({ sender: {} }))
       .toThrow('Unauthorized IPC sender')
+    await expect(
+      handles.get(FS_CHANNELS.LIST_SUBDIRECTORIES)!({ sender: {} }, '/repo')
+    ).rejects.toThrow('Unauthorized IPC sender')
   })
 
   it('rejects malformed watch params', async () => {
@@ -129,5 +139,54 @@ describe('registerFsHandlers', () => {
 
     expect(handles.get(FS_CHANNELS.GET_HOME_DIR)!({ sender: {} })).toBe('/home/mock')
     expect(mockHomedir).toHaveBeenCalled()
+  })
+
+  it('rejects empty dir for LIST_SUBDIRECTORIES', async () => {
+    const { ipcMain, handles } = createIpcMainMock()
+    registerFsHandlers(ipcMain)
+
+    await expect(
+      handles.get(FS_CHANNELS.LIST_SUBDIRECTORIES)!({ sender: {} }, '')
+    ).rejects.toThrow()
+    expect(mockReaddir).not.toHaveBeenCalled()
+  })
+
+  it('lists subdirectories, filtering hidden dirs and files, sorted alphabetically', async () => {
+    const { ipcMain, handles } = createIpcMainMock()
+    registerFsHandlers(ipcMain)
+
+    mockReaddir.mockResolvedValue([
+      { name: 'gamma', isDirectory: () => true },
+      { name: '.hidden', isDirectory: () => true },
+      { name: 'alpha', isDirectory: () => true },
+      { name: 'file.txt', isDirectory: () => false },
+      { name: 'beta', isDirectory: () => true },
+      { name: '.git', isDirectory: () => true },
+    ])
+
+    const result = await handles.get(FS_CHANNELS.LIST_SUBDIRECTORIES)!(
+      { sender: {} },
+      '/projects'
+    )
+
+    expect(mockReaddir).toHaveBeenCalledWith('/projects', { withFileTypes: true })
+    expect(result).toEqual(['alpha', 'beta', 'gamma'])
+  })
+
+  it('returns empty array when directory has no subdirectories', async () => {
+    const { ipcMain, handles } = createIpcMainMock()
+    registerFsHandlers(ipcMain)
+
+    mockReaddir.mockResolvedValue([
+      { name: 'readme.md', isDirectory: () => false },
+      { name: '.gitignore', isDirectory: () => false },
+    ])
+
+    const result = await handles.get(FS_CHANNELS.LIST_SUBDIRECTORIES)!(
+      { sender: {} },
+      '/empty-project'
+    )
+
+    expect(result).toEqual([])
   })
 })

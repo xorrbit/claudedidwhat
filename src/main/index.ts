@@ -297,6 +297,11 @@ function registerIpcHandlers() {
         label: 'Clear',
         click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, sessionId, 'clear'),
       },
+      { type: 'separator' },
+      {
+        label: 'Open tabs for subdirectories',
+        click: () => event.sender.send(TERMINAL_MENU_CHANNELS.ACTION, sessionId, 'openSubdirTabs'),
+      },
     ])
     menu.popup()
   })

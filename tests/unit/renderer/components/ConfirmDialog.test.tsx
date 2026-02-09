@@ -1,3 +1,4 @@
+import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ConfirmDialog } from '@renderer/components/common/ConfirmDialog'
@@ -88,10 +89,41 @@ describe('ConfirmDialog', () => {
     expect(icon).toBeInTheDocument()
   })
 
-  it('applies destructive styling to confirm button', () => {
+  it('applies destructive styling to confirm button by default', () => {
     render(<ConfirmDialog {...defaultProps} />)
 
     const confirmButton = screen.getByText('Close anyway')
     expect(confirmButton.className).toContain('text-obsidian-deleted')
+  })
+
+  it('renders ReactNode message content', () => {
+    const message = (
+      <div>
+        <p>Open tabs for these directories:</p>
+        <ul>
+          <li>alpha</li>
+          <li>beta</li>
+        </ul>
+      </div>
+    )
+
+    render(<ConfirmDialog {...defaultProps} message={message} />)
+
+    expect(screen.getByText('Open tabs for these directories:')).toBeInTheDocument()
+    expect(screen.getByText('alpha')).toBeInTheDocument()
+    expect(screen.getByText('beta')).toBeInTheDocument()
+  })
+
+  it('applies custom confirmClassName to confirm button', () => {
+    render(
+      <ConfirmDialog
+        {...defaultProps}
+        confirmClassName="px-4 py-2 text-sm font-medium text-obsidian-accent"
+      />
+    )
+
+    const confirmButton = screen.getByText('Close anyway')
+    expect(confirmButton.className).toContain('text-obsidian-accent')
+    expect(confirmButton.className).not.toContain('text-obsidian-deleted')
   })
 })

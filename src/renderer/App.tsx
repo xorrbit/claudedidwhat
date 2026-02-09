@@ -27,6 +27,7 @@ function AppContent() {
   const [showSettings, setShowSettings] = useState(false)
   const [automationEnabled, setAutomationEnabled] = useState(false)
   const [pendingCloseSessionId, setPendingCloseSessionId] = useState<string | null>(null)
+  const [pendingSubdirOpen, setPendingSubdirOpen] = useState<{ parentDir: string; subdirs: string[] } | null>(null)
 
   // UI scale (persisted to localStorage, applied to root font-size)
   const [uiScale, setUiScale] = useState(() => {
@@ -146,7 +147,9 @@ function AppContent() {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (pendingCloseSessionId !== null) {
+      if (pendingSubdirOpen !== null) {
+        setPendingSubdirOpen(null)
+      } else if (pendingCloseSessionId !== null) {
         setPendingCloseSessionId(null)
       } else if (showSettings) {
         setShowSettings(false)
@@ -158,7 +161,7 @@ function AppContent() {
     // intercept bubbling keydown events.
     window.addEventListener('keydown', handleEscape, true)
     return () => window.removeEventListener('keydown', handleEscape, true)
-  }, [showHelp, showSettings, pendingCloseSessionId])
+  }, [showHelp, showSettings, pendingCloseSessionId, pendingSubdirOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -172,6 +175,36 @@ function AppContent() {
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // Handle "Open tabs for subdirectories" context menu action
+  useEffect(() => {
+    return window.electronAPI.terminal.onContextMenuAction(async (sessionId, action) => {
+      if (action !== 'openSubdirTabs') return
+      const cwd = sessionCwds.get(sessionId)
+      if (!cwd) return
+      try {
+        const subdirs = await window.electronAPI.fs.listSubdirectories(cwd)
+        if (subdirs.length > 0) {
+          setPendingSubdirOpen({ parentDir: cwd, subdirs })
+        }
+      } catch {
+        // Silently ignore errors (e.g. permission denied)
+      }
+    })
+  }, [sessionCwds])
+
+  const handleConfirmSubdirOpen = useCallback(async () => {
+    if (!pendingSubdirOpen) return
+    const { parentDir, subdirs } = pendingSubdirOpen
+    setPendingSubdirOpen(null)
+    for (const subdir of subdirs) {
+      await createSession(`${parentDir}/${subdir}`)
+    }
+  }, [pendingSubdirOpen, createSession])
+
+  const handleCancelSubdirOpen = useCallback(() => {
+    setPendingSubdirOpen(null)
   }, [])
 
   const handleAutomationToggle = useCallback(async (enabled: boolean) => {
@@ -254,6 +287,32 @@ function AppContent() {
         message="Claude or Codex is still running in this tab. Are you sure you want to close it?"
         onConfirm={handleConfirmClose}
         onCancel={handleCancelClose}
+      />
+      <ConfirmDialog
+        isOpen={pendingSubdirOpen !== null}
+        title="Open tabs for subdirectories"
+        confirmLabel={`Open ${pendingSubdirOpen?.subdirs.length ?? 0} tabs`}
+        cancelLabel="Cancel"
+        confirmClassName="px-4 py-2 text-sm font-medium text-obsidian-accent bg-obsidian-accent/10 hover:bg-obsidian-accent/20 rounded-lg border border-obsidian-accent/20 transition-colors"
+        message={
+          pendingSubdirOpen ? (
+            <div>
+              <p className="mb-3">
+                Open a new tab for each subdirectory of{' '}
+                <span className="font-mono text-obsidian-text">{pendingSubdirOpen.parentDir}</span>?
+              </p>
+              <div className="max-h-48 overflow-y-auto rounded-lg bg-obsidian-surface border border-obsidian-border-subtle p-2">
+                {pendingSubdirOpen.subdirs.map((dir) => (
+                  <div key={dir} className="font-mono text-xs text-obsidian-text py-0.5 px-2">
+                    {dir}/
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : ''
+        }
+        onConfirm={handleConfirmSubdirOpen}
+        onCancel={handleCancelSubdirOpen}
       />
     </div>
   )

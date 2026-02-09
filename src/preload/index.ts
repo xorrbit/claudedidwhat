@@ -110,6 +110,9 @@ const electronAPI: ElectronAPI = {
 
     getHomeDir: (): Promise<string> =>
       ipcRenderer.invoke(FS_CHANNELS.GET_HOME_DIR),
+
+    listSubdirectories: (dir: string): Promise<string[]> =>
+      ipcRenderer.invoke(FS_CHANNELS.LIST_SUBDIRECTORIES, dir),
   },
 
   grammar: {

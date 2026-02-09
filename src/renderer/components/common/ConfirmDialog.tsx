@@ -1,9 +1,12 @@
+import type { ReactNode } from 'react'
+
 interface ConfirmDialogProps {
   isOpen: boolean
   title: string
-  message: string
+  message: string | ReactNode
   confirmLabel?: string
   cancelLabel?: string
+  confirmClassName?: string
   onConfirm: () => void
   onCancel: () => void
 }
@@ -14,6 +17,7 @@ export function ConfirmDialog({
   message,
   confirmLabel = 'Close anyway',
   cancelLabel = 'Cancel',
+  confirmClassName,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -54,7 +58,7 @@ export function ConfirmDialog({
 
         {/* Body */}
         <div className="px-6 py-5">
-          <p className="text-sm text-obsidian-text-secondary leading-relaxed">{message}</p>
+          <div className="text-sm text-obsidian-text-secondary leading-relaxed">{message}</div>
         </div>
 
         {/* Footer */}
@@ -66,7 +70,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            className="px-4 py-2 text-sm font-medium text-obsidian-deleted bg-obsidian-deleted/10 hover:bg-obsidian-deleted/20 rounded-lg border border-obsidian-deleted/20 transition-colors"
+            className={confirmClassName ?? "px-4 py-2 text-sm font-medium text-obsidian-deleted bg-obsidian-deleted/10 hover:bg-obsidian-deleted/20 rounded-lg border border-obsidian-deleted/20 transition-colors"}
             onClick={onConfirm}
           >
             {confirmLabel}

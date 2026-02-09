@@ -1,4 +1,5 @@
 import { IpcMain } from 'electron'
+import { readdir } from 'fs/promises'
 import { homedir } from 'os'
 import { FS_CHANNELS } from '@shared/types'
 import { FileWatcher } from '../services/watcher'
@@ -34,5 +35,15 @@ export function registerFsHandlers(ipcMain: IpcMain) {
   ipcMain.handle(FS_CHANNELS.GET_HOME_DIR, (event) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
     return homedir()
+  })
+
+  ipcMain.handle(FS_CHANNELS.LIST_SUBDIRECTORIES, async (event, dir: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
+    assertNonEmptyString(dir, 'dir')
+    const entries = await readdir(dir, { withFileTypes: true })
+    return entries
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b))
   })
 }

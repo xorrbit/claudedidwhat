@@ -36,6 +36,7 @@ export const FS_CHANNELS = {
   WATCHER_ERROR: 'fs:watcherError',
   SELECT_DIRECTORY: 'fs:selectDirectory',
   GET_HOME_DIR: 'fs:getHomeDir',
+  LIST_SUBDIRECTORIES: 'fs:listSubdirectories',
 } as const
 
 // PTY types
@@ -153,6 +154,7 @@ export interface ElectronAPI {
     onWatcherError: (callback: (sessionId: string) => void) => () => void
     selectDirectory: () => Promise<string | null>
     getHomeDir: () => Promise<string>
+    listSubdirectories: (dir: string) => Promise<string[]>
   }
   grammar: {
     scan: () => Promise<GrammarScanResult>

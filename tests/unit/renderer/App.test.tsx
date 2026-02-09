@@ -380,4 +380,114 @@ describe('App', () => {
       expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
     })
   })
+
+  describe('open tabs for subdirectories', () => {
+    let contextMenuCallback: ((sessionId: string, action: string) => void) | null = null
+
+    beforeEach(() => {
+      contextMenuCallback = null
+      vi.mocked(window.electronAPI.terminal.onContextMenuAction).mockImplementation((cb) => {
+        contextMenuCallback = cb
+        return () => { contextMenuCallback = null }
+      })
+      vi.mocked(window.electronAPI.fs.listSubdirectories).mockResolvedValue(['alpha', 'beta', 'gamma'])
+    })
+
+    it('shows confirmation dialog listing subdirectories on context menu action', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'openSubdirTabs')
+      })
+
+      const dialog = screen.getByTestId('mock-confirm-dialog')
+      expect(dialog).toBeInTheDocument()
+      expect(dialog).toHaveAttribute('data-title', 'Open tabs for subdirectories')
+      expect(window.electronAPI.fs.listSubdirectories).toHaveBeenCalledWith('/repo/two/current')
+    })
+
+    it('creates a session for each subdirectory on confirm', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'openSubdirTabs')
+      })
+
+      expect(screen.getByTestId('mock-confirm-dialog')).toBeInTheDocument()
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('mock-confirm-yes'))
+      })
+
+      expect(createSession).toHaveBeenCalledTimes(3)
+      expect(createSession).toHaveBeenCalledWith('/repo/two/current/alpha')
+      expect(createSession).toHaveBeenCalledWith('/repo/two/current/beta')
+      expect(createSession).toHaveBeenCalledWith('/repo/two/current/gamma')
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    it('does not create sessions when user cancels', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'openSubdirTabs')
+      })
+
+      expect(screen.getByTestId('mock-confirm-dialog')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('mock-confirm-no'))
+
+      expect(createSession).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    it('dismisses subdirectory dialog on Escape', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'openSubdirTabs')
+      })
+
+      expect(screen.getByTestId('mock-confirm-dialog')).toBeInTheDocument()
+
+      fireEvent.keyDown(window, { key: 'Escape' })
+
+      expect(createSession).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    it('does not show dialog when subdirectory list is empty', async () => {
+      vi.mocked(window.electronAPI.fs.listSubdirectories).mockResolvedValue([])
+
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'openSubdirTabs')
+      })
+
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    it('does not show dialog when session CWD is unknown', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s3', 'openSubdirTabs')
+      })
+
+      expect(window.electronAPI.fs.listSubdirectories).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    it('ignores non-openSubdirTabs context menu actions', async () => {
+      render(<App />)
+
+      await act(async () => {
+        contextMenuCallback!('s2', 'paste')
+      })
+
+      expect(window.electronAPI.fs.listSubdirectories).not.toHaveBeenCalled()
+      expect(screen.queryByTestId('mock-confirm-dialog')).not.toBeInTheDocument()
+    })
+  })
 })
