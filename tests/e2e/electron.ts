@@ -80,9 +80,6 @@ function getElectronRuntimePrereqError(): Error | null {
 }
 
 function getLaunchPrereqError(mainPath: string): Error | null {
-  if (!isTruthy(process.env.ELECTRON_TEST)) {
-    return new Error('Set ELECTRON_TEST=1 to run Electron E2E tests')
-  }
   if (!existsSync(mainPath)) {
     return new Error(`Electron build output is missing at ${mainPath}. Run "npm run build" first.`)
   }

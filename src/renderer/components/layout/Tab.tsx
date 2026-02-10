@@ -9,9 +9,10 @@ interface TabProps {
   onSelect: (id: string) => void
   onClose: (id: string) => void | Promise<void>
   index: number
+  vertical?: boolean
 }
 
-export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, onSelect, onClose, index }: TabProps) {
+export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, onSelect, onClose, index, vertical }: TabProps) {
   const handleSelect = useCallback(() => onSelect(id), [onSelect, id])
   const handleClose = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -22,9 +23,11 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
     <button
       className={`
         relative flex items-center gap-2.5 px-4 py-2 text-sm
-        transition-colors duration-200 ease-out-expo
-        flex-1 min-w-[100px] max-w-[240px] group
-        rounded-t-lg
+        transition-colors duration-200 ease-out-expo group
+        ${vertical
+          ? 'w-full rounded-l-lg flex-shrink-0'
+          : 'flex-1 min-w-[100px] max-w-[240px] rounded-t-lg'
+        }
         ${isActive
           ? 'bg-obsidian-bg text-obsidian-text'
           : isWaiting
@@ -34,10 +37,10 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
       `}
       onClick={handleSelect}
       title={fullPath}
-      style={{ animationDelay: `${index * 50}ms` }}
+      style={vertical ? undefined : { animationDelay: `${index * 50}ms` }}
     >
       {/* Active tab glow indicator */}
-      {isActive && (
+      {isActive && !vertical && (
         <>
           {/* Top accent line */}
           <div
@@ -48,6 +51,14 @@ export const Tab = memo(function Tab({ id, name, fullPath, isActive, isWaiting, 
           />
           {/* Bottom connection to content */}
           <div className="absolute bottom-0 left-0 right-0 h-px bg-obsidian-bg" />
+        </>
+      )}
+      {isActive && vertical && (
+        <>
+          {/* Left accent line */}
+          <div className="absolute left-0 top-2 bottom-2 w-0.5 bg-gradient-to-b from-transparent via-obsidian-accent to-transparent rounded-full" />
+          {/* Right connection to content */}
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-obsidian-bg" />
         </>
       )}
 

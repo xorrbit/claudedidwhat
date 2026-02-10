@@ -3,11 +3,14 @@ import { Session } from '@shared/types'
 import { Tab } from './Tab'
 import logoPng from '../../../../resources/icon.png'
 
+export type TabPosition = 'top' | 'left'
+
 interface TabBarProps {
   sessions: Session[]
   activeSessionId: string | null
   waitingSessionIds: Set<string>
   automationEnabled?: boolean
+  position?: TabPosition
   onTabSelect: (id: string) => void
   onTabClose: (id: string) => void | Promise<void>
   onNewTab: () => void
@@ -19,6 +22,7 @@ export const TabBar = memo(function TabBar({
   activeSessionId,
   waitingSessionIds,
   automationEnabled = false,
+  position = 'top',
   onTabSelect,
   onTabClose,
   onNewTab,
@@ -132,6 +136,70 @@ export const TabBar = memo(function TabBar({
     e.currentTarget.scrollLeft += e.deltaY
   }, [])
 
+  // ---------- Left sidebar layout ----------
+  if (position === 'left') {
+    return (
+      <div className="w-[200px] flex-shrink-0 flex flex-col bg-obsidian-surface border-r border-obsidian-border-subtle z-10 relative">
+        {/* Subtle left highlight */}
+        <div className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-obsidian-border to-transparent opacity-50" />
+
+        {/* Vertical tabs list */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin flex flex-col gap-0.5 py-1">
+          {sessions.map((session, index) => (
+            <Tab
+              key={session.id}
+              id={session.id}
+              name={session.name}
+              fullPath={session.cwd}
+              isActive={session.id === activeSessionId}
+              isWaiting={waitingSessionIds.has(session.id)}
+              onSelect={onTabSelect}
+              onClose={onTabClose}
+              index={index}
+              vertical
+            />
+          ))}
+
+          {/* Empty space — double-click to open new tab */}
+          <div
+            className="flex-1 min-h-[40px]"
+            data-testid="tabbar-empty-space"
+            onMouseDown={handleEmptyAreaMouseDown}
+            onDoubleClick={handleEmptyAreaDoubleClick}
+          />
+        </div>
+
+        {/* New tab + Settings pinned at bottom */}
+        <div className="flex-shrink-0 border-t border-obsidian-border-subtle">
+          <button
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-obsidian-text-muted hover:text-obsidian-accent hover:bg-obsidian-accent-subtle transition-colors"
+            onClick={onNewTab}
+            title="New tab"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="font-medium">New Tab</span>
+          </button>
+          <button
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-obsidian-text-muted hover:text-obsidian-accent hover:bg-obsidian-accent-subtle transition-colors"
+            onClick={onOpenSettings}
+            title="Settings"
+          >
+            <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round">
+              <line x1="3" y1="8" x2="21" y2="8" />
+              <line x1="3" y1="16" x2="21" y2="16" />
+              <circle cx="9" cy="8" r="2.5" fill="currentColor" stroke="none" />
+              <circle cx="16" cy="16" r="2.5" fill="currentColor" stroke="none" />
+            </svg>
+            <span className="font-medium">Settings</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ---------- Top tab bar layout (default) ----------
   return (
     <div className="relative flex items-stretch bg-obsidian-surface border-b border-obsidian-border-subtle z-10">
       {/* Subtle top highlight */}

@@ -3,7 +3,8 @@ import { SessionProvider } from './context/SessionContext'
 import { useSessions } from './hooks/useSessions'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useInputWaiting } from './hooks/useInputWaiting'
-import { TabBar } from './components/layout/TabBar'
+import { TabBar, type TabPosition } from './components/layout/TabBar'
+import { WindowControlsBar } from './components/layout/WindowControlsBar'
 import { Session, SessionHandle } from './components/layout/Session'
 import { EmptyState } from './components/common/EmptyState'
 import { HelpOverlay } from './components/common/HelpOverlay'
@@ -40,6 +41,17 @@ function AppContent() {
     const stored = localStorage.getItem('cdw-diff-view-mode')
     return (stored === 'unified' || stored === 'split' || stored === 'auto') ? stored : 'unified'
   })
+
+  // Tab position (persisted to localStorage)
+  const [tabPosition, setTabPosition] = useState<TabPosition>(() => {
+    const stored = localStorage.getItem('cdw-tab-position')
+    return (stored === 'top' || stored === 'left') ? stored : 'top'
+  })
+
+  const handleTabPositionChange = useCallback((position: TabPosition) => {
+    setTabPosition(position)
+    localStorage.setItem('cdw-tab-position', position)
+  }, [])
 
   const handleDiffViewModeChange = useCallback((mode: DiffViewMode) => {
     setDiffViewMode(mode)
@@ -230,46 +242,59 @@ function AppContent() {
     onTabSwitched: focusSessionTerminal,
   })
 
+  const tabBar = (
+    <TabBar
+      sessions={sessions}
+      activeSessionId={activeSessionId}
+      waitingSessionIds={waitingIds}
+      automationEnabled={automationEnabled}
+      position={tabPosition}
+      onTabSelect={setActiveSession}
+      onTabClose={guardedCloseSession}
+      onNewTab={createSession}
+      onOpenSettings={handleShowSettings}
+    />
+  )
+
+  const content = (
+    <div className="flex-1 min-h-0 relative">
+      {sessions.length > 0 ? (
+        sessions.map((session) => (
+          <div
+            key={session.id}
+            className={session.id === activeSessionId ? 'h-full' : 'hidden'}
+          >
+            <Session
+              ref={getRefCallback(session.id)}
+              sessionId={session.id}
+              cwd={session.cwd}
+              bootstrapCommands={session.bootstrapCommands}
+              diffCwd={sessionCwds.get(session.id) || session.cwd}
+              gitRootHint={sessionGitRoots.get(session.id)}
+              isActive={session.id === activeSessionId}
+              onCloseSession={closeSession}
+              diffViewMode={diffViewMode}
+              onDiffViewModeChange={handleDiffViewModeChange}
+            />
+          </div>
+        ))
+      ) : (
+        <EmptyState onCreateSession={createSession} />
+      )}
+    </div>
+  )
+
   return (
     <div className="h-screen flex flex-col bg-obsidian-bg relative overflow-hidden">
       {/* Subtle gradient overlay for depth */}
       <div className="absolute inset-0 bg-gradient-to-b from-obsidian-void/50 via-transparent to-obsidian-void/30 pointer-events-none" />
 
-      <TabBar
-        sessions={sessions}
-        activeSessionId={activeSessionId}
-        waitingSessionIds={waitingIds}
-        automationEnabled={automationEnabled}
-        onTabSelect={setActiveSession}
-        onTabClose={guardedCloseSession}
-        onNewTab={createSession}
-        onOpenSettings={handleShowSettings}
-      />
-      <div className="flex-1 min-h-0 relative">
-        {sessions.length > 0 ? (
-          sessions.map((session) => (
-            <div
-              key={session.id}
-              className={session.id === activeSessionId ? 'h-full' : 'hidden'}
-            >
-              <Session
-                ref={getRefCallback(session.id)}
-                sessionId={session.id}
-                cwd={session.cwd}
-                bootstrapCommands={session.bootstrapCommands}
-                diffCwd={sessionCwds.get(session.id) || session.cwd}
-                gitRootHint={sessionGitRoots.get(session.id)}
-                isActive={session.id === activeSessionId}
-                onCloseSession={closeSession}
-                diffViewMode={diffViewMode}
-                onDiffViewModeChange={handleDiffViewModeChange}
-              />
-            </div>
-          ))
-        ) : (
-          <EmptyState onCreateSession={createSession} />
-        )}
+      {tabPosition === 'left' && <WindowControlsBar automationEnabled={automationEnabled} />}
+      <div className={`flex-1 min-h-0 flex ${tabPosition === 'left' ? 'flex-row' : 'flex-col'}`}>
+        {tabBar}
+        {content}
       </div>
+
       <HelpOverlay isOpen={showHelp} onClose={handleHideHelp} />
       <SettingsModal
         isOpen={showSettings}
@@ -278,6 +303,8 @@ function AppContent() {
         onUiScaleChange={handleUiScaleChange}
         diffViewMode={diffViewMode}
         onDiffViewModeChange={handleDiffViewModeChange}
+        tabPosition={tabPosition}
+        onTabPositionChange={handleTabPositionChange}
         automationEnabled={automationEnabled}
         onAutomationToggle={handleAutomationToggle}
       />

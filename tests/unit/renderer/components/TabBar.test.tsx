@@ -263,4 +263,96 @@ describe('TabBar', () => {
 
     expect(screen.queryByText('API')).not.toBeInTheDocument()
   })
+
+  describe('left position (sidebar)', () => {
+    it('renders tabs in left mode', () => {
+      render(
+        <TabBar
+          sessions={mockSessions}
+          activeSessionId="1"
+          waitingSessionIds={new Set()}
+          position="left"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onNewTab={vi.fn()}
+        />
+      )
+
+      expect(screen.getByText('project1')).toBeInTheDocument()
+      expect(screen.getByText('project2')).toBeInTheDocument()
+      expect(screen.getByText('project3')).toBeInTheDocument()
+    })
+
+    it('renders New Tab and Settings buttons at the bottom', () => {
+      render(
+        <TabBar
+          sessions={mockSessions}
+          activeSessionId="1"
+          waitingSessionIds={new Set()}
+          position="left"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onNewTab={vi.fn()}
+          onOpenSettings={vi.fn()}
+        />
+      )
+
+      expect(screen.getByText('New Tab')).toBeInTheDocument()
+      expect(screen.getByText('Settings')).toBeInTheDocument()
+    })
+
+    it('calls onNewTab when New Tab button is clicked', () => {
+      const onNewTab = vi.fn()
+      render(
+        <TabBar
+          sessions={mockSessions}
+          activeSessionId="1"
+          waitingSessionIds={new Set()}
+          position="left"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onNewTab={onNewTab}
+        />
+      )
+
+      fireEvent.click(screen.getByText('New Tab'))
+      expect(onNewTab).toHaveBeenCalled()
+    })
+
+    it('does not render window controls', () => {
+      render(
+        <TabBar
+          sessions={mockSessions}
+          activeSessionId="1"
+          waitingSessionIds={new Set()}
+          position="left"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onNewTab={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByTitle('Minimize')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Maximize')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Close')).not.toBeInTheDocument()
+    })
+
+    it('calls onNewTab when empty space is double-clicked', () => {
+      const onNewTab = vi.fn()
+      render(
+        <TabBar
+          sessions={mockSessions}
+          activeSessionId="1"
+          waitingSessionIds={new Set()}
+          position="left"
+          onTabSelect={vi.fn()}
+          onTabClose={vi.fn()}
+          onNewTab={onNewTab}
+        />
+      )
+
+      fireEvent.doubleClick(screen.getByTestId('tabbar-empty-space'))
+      expect(onNewTab).toHaveBeenCalled()
+    })
+  })
 })

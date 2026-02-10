@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import logoPng from '../../../../resources/icon.png'
 import type { DiffViewMode } from '../diff/DiffView'
+import type { TabPosition } from '../layout/TabBar'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -9,6 +10,8 @@ interface SettingsModalProps {
   onUiScaleChange: (scale: number) => void
   diffViewMode: DiffViewMode
   onDiffViewModeChange: (mode: DiffViewMode) => void
+  tabPosition: TabPosition
+  onTabPositionChange: (position: TabPosition) => void
   automationEnabled: boolean
   onAutomationToggle: (enabled: boolean) => Promise<{ error?: string; configPath?: string } | void>
 }
@@ -19,7 +22,7 @@ const SCALE_STEP = 0.05
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
 
-export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffViewMode, onDiffViewModeChange, automationEnabled, onAutomationToggle }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffViewMode, onDiffViewModeChange, tabPosition, onTabPositionChange, automationEnabled, onAutomationToggle }: SettingsModalProps) {
   const [confirmingApi, setConfirmingApi] = useState(false)
   const [apiToggling, setApiToggling] = useState(false)
   const [apiErrorConfigPath, setApiErrorConfigPath] = useState<string | null>(null)
@@ -212,6 +215,37 @@ export function SettingsModal({ isOpen, onClose, uiScale, onUiScaleChange, diffV
                     `}
                     onClick={() => onDiffViewModeChange(mode)}
                     title={`Set diff view to ${label}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-obsidian-border-subtle" />
+
+          {/* Tab Position */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-medium text-obsidian-text">Tab Position</span>
+                <p className="text-xs text-obsidian-text-ghost mt-0.5">Place tabs along the top or left side</p>
+              </div>
+              <div className="flex items-center rounded-lg border border-obsidian-border-subtle overflow-hidden">
+                {([['top', 'Top'], ['left', 'Left']] as const).map(([pos, label]) => (
+                  <button
+                    key={pos}
+                    className={`
+                      px-3 py-1.5 text-xs font-medium transition-all duration-200
+                      ${tabPosition === pos
+                        ? 'bg-obsidian-accent/15 text-obsidian-accent'
+                        : 'text-obsidian-text-secondary hover:text-obsidian-text hover:bg-obsidian-float'
+                      }
+                    `}
+                    onClick={() => onTabPositionChange(pos)}
+                    title={`Place tabs at the ${label.toLowerCase()}`}
                   >
                     {label}
                   </button>

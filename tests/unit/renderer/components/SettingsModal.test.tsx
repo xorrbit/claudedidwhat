@@ -10,6 +10,8 @@ describe('SettingsModal', () => {
     onUiScaleChange: vi.fn(),
     diffViewMode: 'unified' as const,
     onDiffViewModeChange: vi.fn(),
+    tabPosition: 'top' as const,
+    onTabPositionChange: vi.fn(),
     automationEnabled: false,
     onAutomationToggle: vi.fn().mockResolvedValue(undefined),
   }
@@ -162,6 +164,43 @@ describe('SettingsModal', () => {
       fireEvent.click(screen.getByTitle('Set diff view to Auto'))
 
       expect(onDiffViewModeChange).toHaveBeenCalledWith('auto')
+    })
+  })
+
+  describe('Tab position selector', () => {
+    it('displays "Tab Position" label', () => {
+      render(<SettingsModal {...defaultProps} />)
+      expect(screen.getByText('Tab Position')).toBeInTheDocument()
+    })
+
+    it('highlights the current position (top)', () => {
+      render(<SettingsModal {...defaultProps} tabPosition="top" />)
+      const topButton = screen.getByTitle('Place tabs at the top')
+      expect(topButton.className).toContain('bg-obsidian-accent')
+    })
+
+    it('highlights the current position (left)', () => {
+      render(<SettingsModal {...defaultProps} tabPosition="left" />)
+      const leftButton = screen.getByTitle('Place tabs at the left')
+      expect(leftButton.className).toContain('bg-obsidian-accent')
+    })
+
+    it('clicking Left calls onTabPositionChange("left")', () => {
+      const onTabPositionChange = vi.fn()
+      render(<SettingsModal {...defaultProps} tabPosition="top" onTabPositionChange={onTabPositionChange} />)
+
+      fireEvent.click(screen.getByTitle('Place tabs at the left'))
+
+      expect(onTabPositionChange).toHaveBeenCalledWith('left')
+    })
+
+    it('clicking Top calls onTabPositionChange("top")', () => {
+      const onTabPositionChange = vi.fn()
+      render(<SettingsModal {...defaultProps} tabPosition="left" onTabPositionChange={onTabPositionChange} />)
+
+      fireEvent.click(screen.getByTitle('Place tabs at the top'))
+
+      expect(onTabPositionChange).toHaveBeenCalledWith('top')
     })
   })
 

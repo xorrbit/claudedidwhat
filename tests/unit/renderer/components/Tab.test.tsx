@@ -87,4 +87,29 @@ describe('Tab', () => {
     const button = container.querySelector('button')!
     expect(button.style.animationDelay).toBe('100ms') // 2 * 50ms
   })
+
+  describe('vertical mode', () => {
+    it('uses full width and rounded-l-lg styling', () => {
+      const { container } = render(<Tab {...defaultProps} vertical />)
+
+      const button = container.querySelector('button')!
+      expect(button.className).toContain('w-full')
+      expect(button.className).toContain('rounded-l-lg')
+      expect(button.className).not.toContain('rounded-t-lg')
+    })
+
+    it('does not apply animation delay', () => {
+      const { container } = render(<Tab {...defaultProps} vertical index={2} />)
+
+      const button = container.querySelector('button')!
+      expect(button.style.animationDelay).toBe('')
+    })
+
+    it('shows left accent line when active', () => {
+      const { container } = render(<Tab {...defaultProps} vertical isActive />)
+
+      const accentLine = container.querySelector('.bg-gradient-to-b')
+      expect(accentLine).toBeInTheDocument()
+    })
+  })
 })
