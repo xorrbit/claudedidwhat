@@ -54,6 +54,7 @@ describe('preload electronAPI bridge', () => {
     api.pty.resize({ sessionId: 's1', cols: 80, rows: 24 })
     api.pty.kill('s1')
     await api.pty.getCwd('s1')
+    await api.pty.getCwds(['s1', 's2'])
     await api.pty.getForegroundProcess('s1')
 
     await api.git.getCurrentBranch('/repo')
@@ -89,6 +90,7 @@ describe('preload electronAPI bridge', () => {
     expect(mockSend).toHaveBeenCalledWith(PTY_CHANNELS.RESIZE, { sessionId: 's1', cols: 80, rows: 24 })
     expect(mockSend).toHaveBeenCalledWith(PTY_CHANNELS.KILL, 's1')
     expect(mockInvoke).toHaveBeenCalledWith('pty:getCwd', 's1')
+    expect(mockInvoke).toHaveBeenCalledWith(PTY_CHANNELS.GET_CWDS, ['s1', 's2'])
     expect(mockInvoke).toHaveBeenCalledWith(PTY_CHANNELS.GET_FOREGROUND_PROCESS, 's1')
 
     expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_CURRENT_BRANCH, '/repo')

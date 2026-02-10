@@ -393,6 +393,119 @@ export class PtyManager {
   }
 
   /**
+   * Get the current working directories of multiple PTY processes in a single call.
+   * On macOS, runs a single `lsof` with all PIDs instead of N separate calls.
+   * Falls back to individual getCwd() calls if the batch fails.
+   */
+  async getCwds(sessionIds: string[]): Promise<Record<string, string | null>> {
+    const result: Record<string, string | null> = {}
+
+    // Collect sessions that need resolution (not cached)
+    const needsResolution: { sessionId: string; pid: number }[] = []
+
+    for (const sessionId of sessionIds) {
+      const instance = this.instances.get(sessionId)
+      if (!instance) {
+        result[sessionId] = null
+        continue
+      }
+
+      const pid = instance.pty.pid
+      if (!pid) {
+        result[sessionId] = null
+        continue
+      }
+
+      // Check cache first
+      const cached = this.cwdCache.get(sessionId)
+      if (cached && Date.now() - cached.timestamp < PtyManager.CWD_CACHE_TTL) {
+        result[sessionId] = cached.cwd
+        continue
+      }
+
+      needsResolution.push({ sessionId, pid })
+    }
+
+    if (needsResolution.length === 0) return result
+
+    const os = platform()
+
+    // Linux: /proc is fast and sync, just read them all
+    if (os === 'linux') {
+      for (const { sessionId, pid } of needsResolution) {
+        try {
+          const cwd = readlinkSync(`/proc/${pid}/cwd`)
+          result[sessionId] = cwd
+          this.cwdCache.set(sessionId, { cwd, timestamp: Date.now() })
+        } catch {
+          result[sessionId] = null
+        }
+      }
+      return result
+    }
+
+    // macOS: batch into a single lsof call
+    if (os === 'darwin') {
+      const pidToSessions = new Map<number, string[]>()
+      for (const { sessionId, pid } of needsResolution) {
+        const sessions = pidToSessions.get(pid) || []
+        sessions.push(sessionId)
+        pidToSessions.set(pid, sessions)
+      }
+
+      try {
+        // -a = AND conditions, -d cwd = only cwd file descriptor
+        // -p = process IDs (comma-separated), -F pn = parseable output (pid + name)
+        const pidList = [...pidToSessions.keys()].join(',')
+        const { stdout } = await execFileAsync(
+          'lsof',
+          ['-a', '-d', 'cwd', '-p', pidList, '-F', 'pn'],
+          { timeout: 3000 }
+        )
+
+        // Parse -F pn output: lines are either "p<pid>" or "n<path>"
+        let currentPid: number | null = null
+        for (const line of stdout.split('\n')) {
+          if (line.startsWith('p')) {
+            currentPid = Number.parseInt(line.slice(1), 10)
+          } else if (line.startsWith('n') && currentPid !== null) {
+            const cwd = line.slice(1)
+            const sessions = pidToSessions.get(currentPid)
+            if (sessions) {
+              const now = Date.now()
+              for (const sid of sessions) {
+                result[sid] = cwd
+                this.cwdCache.set(sid, { cwd, timestamp: now })
+              }
+            }
+          }
+        }
+
+        // Fill in nulls for any sessions we didn't get a result for
+        for (const { sessionId } of needsResolution) {
+          if (!(sessionId in result)) {
+            result[sessionId] = null
+          }
+        }
+
+        return result
+      } catch {
+        // Batch lsof failed — fall back to individual calls
+        for (const { sessionId } of needsResolution) {
+          result[sessionId] = await this.getCwd(sessionId)
+        }
+        return result
+      }
+    }
+
+    // Other platforms: fall back to individual calls
+    for (const { sessionId } of needsResolution) {
+      result[sessionId] = await this.getCwd(sessionId)
+    }
+    return result
+  }
+
+  /**
    * Get the foreground process for a PTY session.
    * Returns only known AI assistant process names (`claude` / `codex`), otherwise null.
    */

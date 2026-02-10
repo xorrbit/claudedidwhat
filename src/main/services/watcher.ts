@@ -7,10 +7,9 @@ import { debugLog } from '../logger'
 type WatcherCallback = (event: FileChangeEvent) => void
 type ErrorCallback = (sessionId: string, error: Error) => void
 
-interface WatcherInstance {
+interface SharedWatcher {
   watcher: FSWatcher
-  watchedDir: string
-  callback: WatcherCallback
+  subscribers: Map<string, { callback: WatcherCallback; onError?: ErrorCallback }>
   debounceTimer: NodeJS.Timeout | null
   pendingEvents: FileChangeEvent[]
 }
@@ -59,19 +58,23 @@ function isWSL(): boolean {
 const IS_WSL = isWSL()
 
 export class FileWatcher {
-  private watchers: Map<string, WatcherInstance> = new Map()
+  // One FSWatcher per directory, shared by all sessions watching that dir
+  private dirWatchers: Map<string, SharedWatcher> = new Map()
+  // Reverse lookup: sessionId → directory (for unwatch)
+  private sessionToDir: Map<string, string> = new Map()
 
   /**
    * Start watching a directory for changes.
+   * Multiple sessions watching the same directory share a single FSWatcher.
    */
   watch(sessionId: string, dir: string, callback: WatcherCallback, onError?: ErrorCallback): boolean {
-    // Skip if existing watcher already covers the same directory
-    const existing = this.watchers.get(sessionId)
-    if (existing && existing.watchedDir === dir) {
+    // Skip if existing subscription already covers the same directory
+    const existingDir = this.sessionToDir.get(sessionId)
+    if (existingDir === dir) {
       return true
     }
 
-    // Stop any existing watcher for this session
+    // Stop any existing watcher for this session (may be a different dir)
     this.unwatch(sessionId)
 
     // WSL2: native fs.watch with recursive still uses inotify under the hood,
@@ -79,84 +82,133 @@ export class FileWatcher {
     // Skip file watching entirely — useGitDiff falls back to periodic git status.
     if (IS_WSL) return false
 
-    debugLog('Starting file watcher:', { sessionId, dir })
+    // Check if we already have a shared watcher for this directory
+    let shared = this.dirWatchers.get(dir)
 
-    const fsWatcher = watch(dir, { recursive: true })
+    if (!shared) {
+      // Create a new FSWatcher for this directory
+      debugLog('Creating shared file watcher:', { dir })
 
-    const instance: WatcherInstance = {
-      watcher: fsWatcher,
-      watchedDir: dir,
-      callback,
-      debounceTimer: null,
-      pendingEvents: [],
-    }
+      const fsWatcher = watch(dir, { recursive: true })
 
-    const emitDebounced = () => {
-      if (instance.debounceTimer) {
-        clearTimeout(instance.debounceTimer)
+      shared = {
+        watcher: fsWatcher,
+        subscribers: new Map(),
+        debounceTimer: null,
+        pendingEvents: [],
       }
 
-      instance.debounceTimer = setTimeout(() => {
-        // Emit all pending events (deduplicated by path)
-        const uniqueEvents = new Map<string, FileChangeEvent>()
-        for (const event of instance.pendingEvents) {
-          uniqueEvents.set(event.path, event)
+      const sharedRef = shared
+
+      const emitDebounced = () => {
+        if (sharedRef.debounceTimer) {
+          clearTimeout(sharedRef.debounceTimer)
         }
 
-        for (const event of uniqueEvents.values()) {
-          instance.callback(event)
-        }
+        sharedRef.debounceTimer = setTimeout(() => {
+          // Deduplicate pending events by path
+          const uniqueEvents = new Map<string, FileChangeEvent>()
+          for (const event of sharedRef.pendingEvents) {
+            uniqueEvents.set(event.path, event)
+          }
 
-        instance.pendingEvents = []
-        instance.debounceTimer = null
-      }, DEBOUNCE_MS)
+          // Emit to all subscribers, stamping each event with the subscriber's sessionId
+          for (const [subSessionId, sub] of sharedRef.subscribers) {
+            for (const event of uniqueEvents.values()) {
+              sub.callback({ ...event, sessionId: subSessionId })
+            }
+          }
+
+          sharedRef.pendingEvents = []
+          sharedRef.debounceTimer = null
+        }, DEBOUNCE_MS)
+      }
+
+      fsWatcher.on('change', (_eventType: string, filename: string | null) => {
+        if (!filename) return
+        if (isIgnored(filename)) return
+
+        const fullPath = join(dir, filename)
+        // fs.watch reports 'rename' for add/unlink and 'change' for modifications.
+        // Map both to 'change' since useGitDiff just refreshes git status either way.
+        // sessionId is a placeholder — emitDebounced stamps the real one per subscriber
+        sharedRef.pendingEvents.push({ sessionId: '', type: 'change', path: fullPath })
+        emitDebounced()
+      })
+
+      fsWatcher.on('error', (error: NodeJS.ErrnoException) => {
+        console.error(`Shared watcher error for dir ${dir}:`, error)
+        if (error.code === 'EMFILE' || error.code === 'ENFILE' || error.code === 'ENOSPC') {
+          debugLog('Shared watcher hit OS limit, closing:', { dir, code: error.code })
+          // Notify all subscribers and remove them
+          for (const [subSessionId, sub] of sharedRef.subscribers) {
+            sub.onError?.(subSessionId, error)
+          }
+          // Clean up the shared watcher entirely
+          this.closeSharedWatcher(dir)
+        }
+      })
+
+      this.dirWatchers.set(dir, shared)
     }
 
-    fsWatcher.on('change', (_eventType: string, filename: string | null) => {
-      if (!filename) return
-      if (isIgnored(filename)) return
+    // Add this session as a subscriber
+    shared.subscribers.set(sessionId, { callback, onError })
+    this.sessionToDir.set(sessionId, dir)
+    debugLog('Subscribed to shared watcher:', { sessionId, dir, subscribers: shared.subscribers.size })
 
-      const fullPath = join(dir, filename)
-      // fs.watch reports 'rename' for add/unlink and 'change' for modifications.
-      // Map both to 'change' since useGitDiff just refreshes git status either way.
-      instance.pendingEvents.push({ sessionId, type: 'change', path: fullPath })
-      emitDebounced()
-    })
-
-    fsWatcher.on('error', (error: NodeJS.ErrnoException) => {
-      console.error(`Watcher error for session ${sessionId}:`, error)
-      if (error.code === 'EMFILE' || error.code === 'ENFILE' || error.code === 'ENOSPC') {
-        debugLog('Watcher hit OS limit, closing:', { sessionId, code: error.code })
-        this.unwatch(sessionId)
-        onError?.(sessionId, error)
-      }
-    })
-
-    this.watchers.set(sessionId, instance)
     return true
   }
 
   /**
    * Stop watching for a session.
+   * The underlying FSWatcher is only closed when the last subscriber unsubscribes.
    */
   unwatch(sessionId: string): void {
-    const instance = this.watchers.get(sessionId)
-    if (instance) {
-      if (instance.debounceTimer) {
-        clearTimeout(instance.debounceTimer)
-      }
-      debugLog('Stopping file watcher:', { sessionId })
-      instance.watcher.close()
-      this.watchers.delete(sessionId)
+    const dir = this.sessionToDir.get(sessionId)
+    if (!dir) return
+
+    this.sessionToDir.delete(sessionId)
+
+    const shared = this.dirWatchers.get(dir)
+    if (!shared) return
+
+    shared.subscribers.delete(sessionId)
+    debugLog('Unsubscribed from shared watcher:', { sessionId, dir, subscribers: shared.subscribers.size })
+
+    // Close the FSWatcher when no subscribers remain
+    if (shared.subscribers.size === 0) {
+      this.closeSharedWatcher(dir)
     }
+  }
+
+  /**
+   * Close a shared watcher and clean up its resources.
+   */
+  private closeSharedWatcher(dir: string): void {
+    const shared = this.dirWatchers.get(dir)
+    if (!shared) return
+
+    if (shared.debounceTimer) {
+      clearTimeout(shared.debounceTimer)
+    }
+    debugLog('Closing shared file watcher:', { dir })
+    shared.watcher.close()
+
+    // Clean up reverse lookup for any remaining subscribers
+    for (const subSessionId of shared.subscribers.keys()) {
+      this.sessionToDir.delete(subSessionId)
+    }
+
+    this.dirWatchers.delete(dir)
   }
 
   /**
    * Stop all watchers (for cleanup on app exit).
    */
   unwatchAll(): void {
-    for (const [sessionId] of this.watchers) {
-      this.unwatch(sessionId)
+    for (const dir of [...this.dirWatchers.keys()]) {
+      this.closeSharedWatcher(dir)
     }
   }
 }

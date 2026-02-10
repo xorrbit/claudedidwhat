@@ -418,7 +418,11 @@ describe('useSessions (SessionContext)', () => {
   describe('CWD tracking', () => {
     it('updates sessionCwds when polling', async () => {
       vi.useFakeTimers()
-      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/new/working/dir')
+      vi.mocked(window.electronAPI.pty.getCwds).mockImplementation(async (ids) => {
+        const result: Record<string, string | null> = {}
+        for (const id of ids) result[id] = '/new/working/dir'
+        return result
+      })
       vi.mocked(window.electronAPI.git.getCurrentBranch).mockResolvedValue(null)
 
       const { result } = renderHook(() => useSessionContext(), { wrapper })
@@ -443,7 +447,11 @@ describe('useSessions (SessionContext)', () => {
 
     it('updates session name when branch changes', async () => {
       vi.useFakeTimers()
-      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/test/project')
+      vi.mocked(window.electronAPI.pty.getCwds).mockImplementation(async (ids) => {
+        const result: Record<string, string | null> = {}
+        for (const id of ids) result[id] = '/test/project'
+        return result
+      })
       vi.mocked(window.electronAPI.git.findGitRoot).mockResolvedValue('/test/project')
 
       // Initially return main
@@ -487,7 +495,11 @@ describe('useSessions (SessionContext)', () => {
 
     it('skips polling updates while document is hidden', async () => {
       vi.useFakeTimers()
-      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/hidden/dir')
+      vi.mocked(window.electronAPI.pty.getCwds).mockImplementation(async (ids) => {
+        const result: Record<string, string | null> = {}
+        for (const id of ids) result[id] = '/hidden/dir'
+        return result
+      })
 
       let hidden = true
       Object.defineProperty(document, 'hidden', {
@@ -506,7 +518,7 @@ describe('useSessions (SessionContext)', () => {
         await vi.advanceTimersByTimeAsync(10000)
       })
 
-      expect(window.electronAPI.pty.getCwd).not.toHaveBeenCalled()
+      expect(window.electronAPI.pty.getCwds).not.toHaveBeenCalled()
 
       hidden = false
       vi.useRealTimers()
@@ -514,7 +526,11 @@ describe('useSessions (SessionContext)', () => {
 
     it('refreshes session state on visibilitychange when document becomes visible', async () => {
       vi.useFakeTimers()
-      vi.mocked(window.electronAPI.pty.getCwd).mockResolvedValue('/visible/dir')
+      vi.mocked(window.electronAPI.pty.getCwds).mockImplementation(async (ids) => {
+        const result: Record<string, string | null> = {}
+        for (const id of ids) result[id] = '/visible/dir'
+        return result
+      })
 
       let hidden = true
       Object.defineProperty(document, 'hidden', {
@@ -528,7 +544,7 @@ describe('useSessions (SessionContext)', () => {
         await vi.advanceTimersByTimeAsync(100)
       })
       expect(result.current.sessions).toHaveLength(1)
-      expect(window.electronAPI.pty.getCwd).not.toHaveBeenCalled()
+      expect(window.electronAPI.pty.getCwds).not.toHaveBeenCalled()
 
       hidden = false
       await act(async () => {
@@ -536,7 +552,7 @@ describe('useSessions (SessionContext)', () => {
         await Promise.resolve()
       })
 
-      expect(window.electronAPI.pty.getCwd).toHaveBeenCalled()
+      expect(window.electronAPI.pty.getCwds).toHaveBeenCalled()
 
       vi.useRealTimers()
     })

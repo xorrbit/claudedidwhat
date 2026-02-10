@@ -30,7 +30,7 @@ function resolveRepoPath(gitRoot: string, filePath: string): string | null {
 export class GitService {
   // Cache current branch per git root (short TTL — changes on checkout)
   private currentBranchCache = new Map<string, { branch: string | null; timestamp: number }>()
-  private static CURRENT_BRANCH_CACHE_TTL = 2000 // 2 seconds
+  private static CURRENT_BRANCH_CACHE_TTL = 5000 // 5 seconds (matches poll interval; OSC7 provides instant CWD updates)
 
   // Cache main branch per git root (rarely changes during session)
   private mainBranchCache = new Map<string, { branch: string; timestamp: number }>()
@@ -47,6 +47,10 @@ export class GitService {
   // This avoids re-running expensive `git diffSummary(base...HEAD)` on every poll.
   private branchDiffCache = new Map<string, ChangedFile[]>()
   private static BRANCH_DIFF_CACHE_MAX = 100
+
+  // In-flight coalescing: if getChangedFiles() is called with the same gitRoot+baseBranch
+  // while a request is already pending, reuse the existing promise instead of spawning a duplicate.
+  private inFlightChangedFiles = new Map<string, Promise<ChangedFile[]>>()
 
   /**
    * Find the git root for a directory by walking up parent dirs.
@@ -208,9 +212,27 @@ export class GitService {
 
   /**
    * Get list of changed files compared to base branch.
+   * Uses in-flight coalescing: concurrent calls with the same gitRoot+baseBranch
+   * reuse a single underlying request instead of spawning duplicates.
    */
   async getChangedFiles(dir: string, baseBranch?: string): Promise<ChangedFile[]> {
     if (baseBranch && !isValidRef(baseBranch)) return []
+    const result = this.getGitWithRoot(dir)
+    if (!result) return []
+    const { gitRoot } = result
+
+    // Coalesce by gitRoot + baseBranch — multiple tabs in the same repo get one request
+    const coalescingKey = `${gitRoot}\0${baseBranch ?? ''}`
+    const inFlight = this.inFlightChangedFiles.get(coalescingKey)
+    if (inFlight) return inFlight
+
+    const promise = this.getChangedFilesImpl(dir, baseBranch)
+      .finally(() => this.inFlightChangedFiles.delete(coalescingKey))
+    this.inFlightChangedFiles.set(coalescingKey, promise)
+    return promise
+  }
+
+  private async getChangedFilesImpl(dir: string, baseBranch?: string): Promise<ChangedFile[]> {
     const result = this.getGitWithRoot(dir)
     if (!result) return []
     const { git, gitRoot } = result

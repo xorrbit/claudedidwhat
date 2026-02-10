@@ -16,6 +16,7 @@ export const PTY_CHANNELS = {
   EXIT: 'pty:exit',
   CWD_CHANGED: 'pty:cwdChanged',
   GET_FOREGROUND_PROCESS: 'pty:getForegroundProcess',
+  GET_CWDS: 'pty:getCwds',
 } as const
 
 // Git IPC channels
@@ -137,6 +138,7 @@ export interface ElectronAPI {
     onExit: (callback: (sessionId: string, code: number) => void) => () => void
     onCwdChanged: (callback: (sessionId: string, cwd: string) => void) => () => void
     getCwd: (sessionId: string) => Promise<string | null>
+    getCwds: (sessionIds: string[]) => Promise<Record<string, string | null>>
     getForegroundProcess: (sessionId: string) => Promise<string | null>
   }
   git: {

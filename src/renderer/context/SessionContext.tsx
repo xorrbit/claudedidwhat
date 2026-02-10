@@ -135,11 +135,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const currentSessions = sessionsRef.current
         const currentSessionIds = new Set(currentSessions.map((s) => s.id))
 
+        // Batch CWD lookups: single lsof call on macOS instead of N
+        const sessionIds = currentSessions.map((s) => s.id)
+        let cwdResults: Record<string, string | null> = {}
+        try {
+          cwdResults = await window.electronAPI.pty.getCwds(sessionIds)
+        } catch {
+          // Fallback: getCwds not available (shouldn't happen, but safe)
+        }
+
+        // Deduplicate branch lookups: one getCurrentBranch call per unique git root
+        const branchPromises = new Map<string, Promise<string | null>>()
+
         // Poll all sessions concurrently instead of sequentially
         await Promise.all(currentSessions.map(async (session) => {
           try {
-            // Get current cwd from terminal
-            const currentCwd = await window.electronAPI.pty.getCwd(session.id)
+            const currentCwd = cwdResults[session.id] ?? null
 
             // If getCwd failed (e.g. lsof timeout on macOS), skip this session
             // entirely — preserve whatever CWD/gitRoot we had before rather than
@@ -155,8 +166,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
             let branch: string | null = null
             if (root) {
-              // Pass git root so SimpleGit instance is reused correctly
-              branch = await window.electronAPI.git.getCurrentBranch(root)
+              // Reuse branch promise for sessions sharing the same git root
+              if (!branchPromises.has(root)) {
+                branchPromises.set(root, window.electronAPI.git.getCurrentBranch(root))
+              }
+              branch = await branchPromises.get(root)!
             }
             const newName = getSessionName(branch, currentCwd)
 

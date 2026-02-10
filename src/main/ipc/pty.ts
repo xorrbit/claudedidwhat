@@ -76,6 +76,16 @@ export function registerPtyHandlers(ipcMain: IpcMain) {
     return ptyManager.getCwd(sessionId)
   })
 
+  ipcMain.handle(PTY_CHANNELS.GET_CWDS, (event, sessionIds: string[]) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
+    if (!Array.isArray(sessionIds)) throw new TypeError('sessionIds must be an array')
+    if (sessionIds.length > 100) throw new TypeError('sessionIds array too large')
+    for (const id of sessionIds) {
+      assertSessionId(id, 'sessionId')
+    }
+    return ptyManager.getCwds(sessionIds)
+  })
+
   ipcMain.handle(PTY_CHANNELS.GET_FOREGROUND_PROCESS, (event, sessionId: string) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
     assertSessionId(sessionId, 'sessionId')
