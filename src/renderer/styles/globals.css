@@ -192,16 +192,28 @@ body {
 .xterm-container .xterm-viewport {
   background: transparent !important;
   direction: rtl;
+  overflow-y: scroll !important;
+}
+
+.xterm-container .xterm-viewport::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .xterm-container .xterm-viewport > * {
   direction: ltr;
 }
 
+/* Reserve space so the left scrollbar doesn't overlap terminal text */
+.xterm-container .xterm-screen {
+  margin-left: 8px;
+}
+
 /* Move xterm's custom scrollbar from right to left */
 .xterm-container .xterm-scrollable-element > .scrollbar.vertical {
   right: auto !important;
   left: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* Prevent text selection during resize */
