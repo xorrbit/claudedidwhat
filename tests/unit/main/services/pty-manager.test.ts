@@ -550,6 +550,21 @@ describe('PtyManager', () => {
       await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
       expect(mockExecAsync).toHaveBeenCalledTimes(2)
     })
+
+    it('caches Linux /proc fallback results briefly', async () => {
+      manager.spawn('session-1', '/home/user')
+      getPtyMock().process = 'bash'
+      mockPlatform.mockReturnValue('linux')
+      mockReadFileSync
+        .mockReturnValueOnce(
+          '12345 (bash) S 120 12345 12345 34816 23456 0 0 0 0 0 0 0 0 20 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+        )
+        .mockReturnValueOnce('/usr/local/bin/codex\0--model\0gpt-5\0')
+
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
+      expect(mockReadFileSync).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('shell integration security', () => {

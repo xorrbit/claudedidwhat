@@ -12,6 +12,12 @@ import { ConfirmDialog } from './components/common/ConfirmDialog'
 import { SettingsModal } from './components/common/SettingsModal'
 import type { DiffViewMode } from './components/diff/DiffView'
 
+function joinSubdirectoryPath(parentDir: string, subdir: string): string {
+  const trimmedParent = parentDir.replace(/[\\/]+$/, '')
+  const separator = trimmedParent.includes('\\') ? '\\' : '/'
+  return `${trimmedParent}${separator}${subdir}`
+}
+
 function AppContent() {
   const {
     sessions,
@@ -88,6 +94,10 @@ function AppContent() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const sessionRefs = useRef<Map<string, SessionHandle>>(new Map())
+  const sessionCwdsRef = useRef(sessionCwds)
+  useEffect(() => {
+    sessionCwdsRef.current = sessionCwds
+  }, [sessionCwds])
   // Stable ref callbacks — one per session, cached so Session memo isn't broken
   const refCallbacks = useRef<Map<string, (handle: SessionHandle | null) => void>>(new Map())
   const getRefCallback = useCallback((sessionId: string) => {
@@ -210,7 +220,7 @@ function AppContent() {
   useEffect(() => {
     return window.electronAPI.terminal.onContextMenuAction(async (sessionId, action) => {
       if (action !== 'openSubdirTabs') return
-      const cwd = sessionCwds.get(sessionId)
+      const cwd = sessionCwdsRef.current.get(sessionId)
       if (!cwd) return
       try {
         const subdirs = await window.electronAPI.fs.listSubdirectories(cwd)
@@ -221,16 +231,26 @@ function AppContent() {
         // Silently ignore errors (e.g. permission denied)
       }
     })
-  }, [sessionCwds])
+  }, [])
 
   const handleConfirmSubdirOpen = useCallback(async () => {
     if (!pendingSubdirOpen) return
     const { parentDir, subdirs } = pendingSubdirOpen
     setPendingSubdirOpen(null)
-    for (const subdir of subdirs) {
-      await createSession(`${parentDir}/${subdir}`)
+
+    const results = await Promise.allSettled(
+      subdirs.map((subdir) => createSession(joinSubdirectoryPath(parentDir, subdir)))
+    )
+
+    // Keep final focus behavior deterministic even though creation is concurrent.
+    for (let index = results.length - 1; index >= 0; index -= 1) {
+      const result = results[index]
+      if (result.status === 'fulfilled' && typeof result.value === 'string') {
+        setActiveSession(result.value)
+        break
+      }
     }
-  }, [pendingSubdirOpen, createSession])
+  }, [pendingSubdirOpen, createSession, setActiveSession])
 
   const handleCancelSubdirOpen = useCallback(() => {
     setPendingSubdirOpen(null)

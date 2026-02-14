@@ -379,6 +379,16 @@ describe('main/index', () => {
     expect(mocks.shellOpenExternal).not.toHaveBeenCalled()
   })
 
+  it('ignores terminal context-menu events with invalid payloads', async () => {
+    await importMain()
+    await resolveWhenReady()
+
+    const handler = state.ipcEvents.get('terminal:context-menu')!
+    handler({ sender: { send: vi.fn() } }, 'invalid/session', true, 'hello')
+
+    expect(mocks.menuPopup).not.toHaveBeenCalled()
+  })
+
   it('runs before-quit cleanup hooks', async () => {
     await importMain()
     await resolveWhenReady()

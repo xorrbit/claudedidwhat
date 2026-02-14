@@ -171,6 +171,23 @@ describe('FileWatcher', () => {
       expect(callback).not.toHaveBeenCalled()
     })
 
+    it('ignores events for Windows-style paths in ignored dirs', () => {
+      const callback = vi.fn()
+      watcher.watch('session-1', '/project', callback)
+
+      const mock = getWatcherMock()
+      const changeHandler = mock.on.mock.calls.find((c: any[]) => c[0] === 'change')![1]
+
+      changeHandler('change', 'node_modules\\foo\\index.js')
+      changeHandler('change', '.git\\HEAD')
+      changeHandler('change', 'dist\\bundle.js')
+      changeHandler('change', '__pycache__\\mod.pyc')
+
+      vi.advanceTimersByTime(300)
+
+      expect(callback).not.toHaveBeenCalled()
+    })
+
     it('ignores .log, .tmp, and .DS_Store files', () => {
       const callback = vi.fn()
       watcher.watch('session-1', '/project', callback)

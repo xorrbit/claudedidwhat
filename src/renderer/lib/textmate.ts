@@ -1,8 +1,8 @@
-import * as monaco from 'monaco-editor'
+import type { languages as MonacoLanguages } from 'monaco-editor'
 import type { GrammarContribution } from '@shared/types'
 import type { StateStack } from 'vscode-textmate'
 
-class TokenizerState implements monaco.languages.IState {
+class TokenizerState implements MonacoLanguages.IState {
   constructor(private _ruleStack: StateStack) {}
 
   get ruleStack(): StateStack {
@@ -13,7 +13,7 @@ class TokenizerState implements monaco.languages.IState {
     return new TokenizerState(this._ruleStack.clone())
   }
 
-  equals(other: monaco.languages.IState): boolean {
+  equals(other: MonacoLanguages.IState): boolean {
     if (!(other instanceof TokenizerState)) return false
     return this._ruleStack.equals(other._ruleStack)
   }
@@ -35,6 +35,17 @@ class TextMateService {
 
   private async _initialize(): Promise<void> {
     try {
+      // Scan first so we can skip loading heavy editor/tokenizer modules entirely
+      // when there are no grammar contributions on this machine.
+      const scanResult = await window.electronAPI.grammar.scan()
+      if (scanResult.errors.length > 0) {
+        console.warn('TextMate scan errors:', scanResult.errors)
+      }
+      if (scanResult.grammars.length === 0) {
+        this.initialized = true
+        return
+      }
+
       // Get onig.wasm binary from main process
       // On WSL2 this returns null immediately (no filesystem I/O)
       const wasmBinary = await window.electronAPI.grammar.getOnigWasm()
@@ -46,7 +57,8 @@ class TextMateService {
       // Dynamically import heavy modules only when we know we need them.
       // This avoids loading vscode-oniguruma/vscode-textmate at startup
       // on platforms where TextMate is disabled (e.g. WSL2).
-      const [oniguruma, textmate] = await Promise.all([
+      const [monacoApi, oniguruma, textmate] = await Promise.all([
+        import('monaco-editor'),
         import('vscode-oniguruma'),
         import('vscode-textmate'),
       ])
@@ -57,16 +69,6 @@ class TextMateService {
         : new Uint8Array(Object.values(wasmBinary as unknown as Record<string, number>)).buffer
 
       await oniguruma.loadWASM(wasmData as ArrayBuffer)
-
-      // Scan for grammar contributions
-      const scanResult = await window.electronAPI.grammar.scan()
-      if (scanResult.errors.length > 0) {
-        console.warn('TextMate scan errors:', scanResult.errors)
-      }
-      if (scanResult.grammars.length === 0) {
-        this.initialized = true
-        return
-      }
 
       // Build lookup maps
       for (const grammar of scanResult.grammars) {
@@ -94,7 +96,7 @@ class TextMateService {
       })
 
       // Wire grammars into Monaco
-      await this.wireGrammarsToMonaco(registry, scanResult.grammars, textmate.INITIAL)
+      await this.wireGrammarsToMonaco(monacoApi, registry, scanResult.grammars, textmate.INITIAL)
 
       this.initialized = true
     } catch (err) {
@@ -103,6 +105,7 @@ class TextMateService {
   }
 
   private async wireGrammarsToMonaco(
+    monacoApi: typeof import('monaco-editor'),
     registry: import('vscode-textmate').Registry,
     grammars: GrammarContribution[],
     INITIAL: StateStack,
@@ -117,24 +120,24 @@ class TextMateService {
 
     // Get already-registered Monaco languages
     const knownLanguages = new Set(
-      monaco.languages.getLanguages().map((l) => l.id),
+      monacoApi.languages.getLanguages().map((l) => l.id),
     )
 
     for (const [languageId, scopeName] of languageToScope) {
       try {
         // Register language if not already known
         if (!knownLanguages.has(languageId)) {
-          monaco.languages.register({ id: languageId })
+          monacoApi.languages.register({ id: languageId })
         }
 
         const grammar = await registry.loadGrammar(scopeName)
         if (!grammar) continue
 
-        monaco.languages.setTokensProvider(languageId, {
-          getInitialState(): monaco.languages.IState {
+        monacoApi.languages.setTokensProvider(languageId, {
+          getInitialState(): MonacoLanguages.IState {
             return new TokenizerState(INITIAL)
           },
-          tokenize(line: string, state: monaco.languages.IState): monaco.languages.ILineTokens {
+          tokenize(line: string, state: MonacoLanguages.IState): MonacoLanguages.ILineTokens {
             const tokenizeResult = grammar.tokenizeLine(line, (state as TokenizerState).ruleStack)
             return {
               tokens: tokenizeResult.tokens.map((token) => ({

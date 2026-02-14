@@ -221,6 +221,30 @@ describe('AutomationApiService', () => {
 
       expect(status).toEqual({ enabled: false })
     })
+
+    it('setEnabled(true) retries startup when config is enabled but runtime is currently down', async () => {
+      writeConfig(makeConfig({ enabled: true }))
+      await service.start()
+      await service.stop()
+
+      const status = await service.setEnabled(true)
+
+      expect(status).toEqual({ enabled: true })
+      expect(service.getCredentials()).not.toBeNull()
+    })
+
+    it('setEnabled(false) updates config even when runtime credentials are already missing', async () => {
+      writeConfig(makeConfig({ enabled: true }))
+      await service.start()
+      await service.stop()
+
+      const status = await service.setEnabled(false)
+      const configPath = join(tempDir, 'automation', 'config.json')
+      const config = JSON.parse(readFileSync(configPath, 'utf8'))
+
+      expect(status).toEqual({ enabled: false })
+      expect(config.enabled).toBe(false)
+    })
   })
 
   describe('Config loading & validation', () => {
@@ -242,7 +266,7 @@ describe('AutomationApiService', () => {
 
     it('throws when config is not a JSON object (array)', async () => {
       writeConfig([1, 2, 3])
-      await expect(service.start()).rejects.toThrow('unknown key')
+      await expect(service.start()).rejects.toThrow('must be a JSON object')
     })
 
     it('throws when config is not a JSON object (string)', async () => {
@@ -587,9 +611,9 @@ describe('AutomationApiService', () => {
         expect(res.statusCode).toBe(400)
       })
 
-      it('non-object body (array) returns 500', async () => {
+      it('non-object body (array) returns 400', async () => {
         const res = await validRequest(creds, { body: JSON.stringify([1, 2]) })
-        expect(res.statusCode).toBe(500)
+        expect(res.statusCode).toBe(400)
       })
 
       it('non-object body (string) returns 400', async () => {
@@ -597,11 +621,11 @@ describe('AutomationApiService', () => {
         expect(res.statusCode).toBe(400)
       })
 
-      it('unknown keys in request body returns 500', async () => {
+      it('unknown keys in request body returns 400', async () => {
         const res = await validRequest(creds, {
           body: JSON.stringify({ cwd: tempDir, commands: ['echo'], extra: true }),
         })
-        expect(res.statusCode).toBe(500)
+        expect(res.statusCode).toBe(400)
       })
 
       it('missing cwd returns 400', async () => {
@@ -733,6 +757,27 @@ describe('AutomationApiService', () => {
       it('cwd outside all allowed roots returns 403', async () => {
         const res = await validRequest(creds, {
           body: JSON.stringify({ cwd: '/usr/bin', commands: ['echo'] }),
+        })
+        expect(res.statusCode).toBe(403)
+      })
+
+      it('rejects cwd that escapes allowedRoots through a symlinked subpath', async () => {
+        await service.stop()
+
+        const allowedRoot = join(tempDir, 'allowed-root')
+        const outsideRoot = join(tempDir, 'outside-root')
+        const outsideProject = join(outsideRoot, 'project')
+        mkdirSync(allowedRoot, { recursive: true })
+        mkdirSync(outsideProject, { recursive: true })
+        symlinkSync(outsideRoot, join(allowedRoot, 'link-out'))
+
+        writeConfig(makeConfig({ enabled: true, allowedRoots: [allowedRoot] }))
+        service = new AutomationApiService(tempDir, onBootstrap)
+        await service.start()
+        creds = service.getCredentials()!
+
+        const res = await validRequest(creds, {
+          body: JSON.stringify({ cwd: join(allowedRoot, 'link-out', 'project'), commands: ['echo'] }),
         })
         expect(res.statusCode).toBe(403)
       })

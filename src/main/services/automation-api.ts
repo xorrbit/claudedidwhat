@@ -4,6 +4,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  realpathSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -90,7 +91,7 @@ function isLocalAddress(remoteAddress: string | undefined): boolean {
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function assertKnownKeys(obj: Record<string, unknown>, allowedKeys: string[], name: string): void {
@@ -189,7 +190,14 @@ export class AutomationApiService {
   }
 
   async setEnabled(enabled: boolean): Promise<AutomationApiStatus> {
-    if (enabled === this.getStatus().enabled) {
+    // Compare against desired config state (not runtime credentials),
+    // so we can still disable if startup previously failed.
+    if (enabled === this.config.enabled) {
+      // Desired "enabled" state may be true while runtime is currently down
+      // (e.g. prior startup error). Retry startup in that case.
+      if (enabled && (!this.server || !this.credentials)) {
+        await this.start()
+      }
       return this.getStatus()
     }
 
@@ -202,15 +210,31 @@ export class AutomationApiService {
       }
     }
 
+    const previousConfig = this.config
+
     // Update config on disk
     this.config = { ...this.config, enabled }
     this.ensureAutomationDir()
     this.writeJsonFileAtomic(this.getConfigPath(), this.config)
 
-    if (enabled) {
-      await this.start()
-    } else {
-      await this.stop()
+    try {
+      if (enabled) {
+        await this.start()
+      } else {
+        await this.stop()
+      }
+    } catch (error) {
+      // Best effort rollback on failed enable so future retries work naturally.
+      if (enabled) {
+        this.config = previousConfig
+        try {
+          this.ensureAutomationDir()
+          this.writeJsonFileAtomic(this.getConfigPath(), this.config)
+        } catch (rollbackError) {
+          console.error('Failed to roll back automation config after startup failure:', rollbackError)
+        }
+      }
+      throw error
     }
 
     return this.getStatus()
@@ -347,7 +371,12 @@ export class AutomationApiService {
     if (!isObject(parsed)) {
       throw new HttpError(400, 'Request body must be a JSON object')
     }
-    assertKnownKeys(parsed, ['cwd', 'commands'], 'request body')
+    try {
+      assertKnownKeys(parsed, ['cwd', 'commands'], 'request body')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request body contains unknown key'
+      throw new HttpError(400, message)
+    }
 
     const cwd = parsed.cwd
     if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -358,8 +387,9 @@ export class AutomationApiService {
     }
 
     const resolvedCwd = resolve(cwd)
+    // Keep a lexical allowlist check first so out-of-scope paths are rejected
+    // uniformly (even when they do not exist).
     this.assertPathAllowed(resolvedCwd)
-
     if (!existsSync(resolvedCwd)) {
       throw new HttpError(400, 'cwd does not exist')
     }
@@ -367,6 +397,14 @@ export class AutomationApiService {
     if (!cwdStat.isDirectory()) {
       throw new HttpError(400, 'cwd must be a directory')
     }
+    // Canonicalize before allowlist checks to prevent symlink escapes.
+    let realCwd: string
+    try {
+      realCwd = realpathSync(resolvedCwd)
+    } catch {
+      throw new HttpError(400, 'cwd could not be resolved')
+    }
+    this.assertPathAllowed(realCwd)
 
     const commands = parsed.commands
     if (!Array.isArray(commands)) {
@@ -435,29 +473,62 @@ export class AutomationApiService {
     return new Promise<string>((resolvePromise, rejectPromise) => {
       const chunks: Buffer[] = []
       let totalBytes = 0
-      let failed = false
+      let completed = false
 
-      req.on('data', (chunk: Buffer) => {
-        if (failed) return
+      const cleanup = () => {
+        req.off('data', onData)
+        req.off('end', onEnd)
+        req.off('error', onError)
+        req.off('aborted', onAborted)
+        req.off('close', onClose)
+      }
+
+      const fail = (error: Error) => {
+        if (completed) return
+        completed = true
+        cleanup()
+        rejectPromise(error)
+      }
+
+      const succeed = (body: string) => {
+        if (completed) return
+        completed = true
+        cleanup()
+        resolvePromise(body)
+      }
+
+      const onData = (chunk: Buffer) => {
+        if (completed) return
         totalBytes += chunk.length
         if (totalBytes > maxBytes) {
-          failed = true
-          rejectPromise(new HttpError(413, `Request body exceeds ${maxBytes} bytes`))
+          fail(new HttpError(413, `Request body exceeds ${maxBytes} bytes`))
           return
         }
         chunks.push(chunk)
-      })
+      }
 
-      req.on('end', () => {
-        if (failed) return
-        resolvePromise(Buffer.concat(chunks).toString('utf8'))
-      })
+      const onEnd = () => {
+        succeed(Buffer.concat(chunks).toString('utf8'))
+      }
 
-      req.on('error', (error) => {
-        if (failed) return
-        failed = true
-        rejectPromise(error)
-      })
+      const onError = (error: Error) => {
+        fail(error)
+      }
+
+      const onAborted = () => {
+        fail(new HttpError(400, 'Request body was aborted'))
+      }
+
+      const onClose = () => {
+        if (completed) return
+        fail(new HttpError(400, 'Request body stream closed before completion'))
+      }
+
+      req.on('data', onData)
+      req.on('end', onEnd)
+      req.on('error', onError)
+      req.on('aborted', onAborted)
+      req.on('close', onClose)
     })
   }
 
@@ -518,7 +589,13 @@ export class AutomationApiService {
       if (!isAbsolute(root)) {
         throw new Error(`allowedRoots entry must be an absolute path: ${root}`)
       }
-      return resolve(root)
+      const resolvedRoot = resolve(root)
+      if (!existsSync(resolvedRoot)) return resolvedRoot
+      try {
+        return realpathSync(resolvedRoot)
+      } catch (error) {
+        throw new Error(`allowedRoots entry could not be resolved: ${root} (${error instanceof Error ? error.message : String(error)})`)
+      }
     })
 
     const uniqueAllowedRoots = [...new Set(allowedRoots)]

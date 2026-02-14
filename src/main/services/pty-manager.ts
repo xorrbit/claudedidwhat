@@ -534,41 +534,47 @@ export class PtyManager {
 
     // Fast path when node-pty already resolves the foreground process name.
     const quickMatch = matchAIProcess(instance.pty.process)
-    if (quickMatch) return quickMatch
+    if (quickMatch) {
+      this.foregroundProcessCache.set(sessionId, {
+        processName: quickMatch,
+        timestamp: Date.now(),
+      })
+      return quickMatch
+    }
+
+    // Cache miss only: querying process state can be relatively expensive
+    // on Linux (/proc reads) and macOS (ps commands).
+    const cached = this.foregroundProcessCache.get(sessionId)
+    if (cached && Date.now() - cached.timestamp < PtyManager.FOREGROUND_PROCESS_CACHE_TTL) {
+      return cached.processName
+    }
 
     const shellPid = instance.pty.pid
     if (!shellPid) return null
 
     const os = platform()
+    let detected: string | null = null
 
     if (os === 'linux') {
       try {
         const statContent = readFileSync(`/proc/${shellPid}/stat`, 'utf8')
         const tpgid = parseLinuxTpgid(statContent)
-        if (!tpgid || tpgid === shellPid) return null
-
-        const foregroundCmdline = readFileSync(`/proc/${tpgid}/cmdline`, 'utf8')
-        return matchAIProcess(foregroundCmdline)
+        if (tpgid && tpgid !== shellPid) {
+          const foregroundCmdline = readFileSync(`/proc/${tpgid}/cmdline`, 'utf8')
+          detected = matchAIProcess(foregroundCmdline)
+        }
       } catch {
-        return null
+        detected = null
       }
+    } else if (os === 'darwin') {
+      detected = await this.getForegroundProcessViaPs(shellPid)
     }
 
-    if (os === 'darwin') {
-      const cached = this.foregroundProcessCache.get(sessionId)
-      if (cached && Date.now() - cached.timestamp < PtyManager.FOREGROUND_PROCESS_CACHE_TTL) {
-        return cached.processName
-      }
-
-      const detected = await this.getForegroundProcessViaPs(shellPid)
-      this.foregroundProcessCache.set(sessionId, {
-        processName: detected,
-        timestamp: Date.now(),
-      })
-      return detected
-    }
-
-    return null
+    this.foregroundProcessCache.set(sessionId, {
+      processName: detected,
+      timestamp: Date.now(),
+    })
+    return detected
   }
 
   private async getForegroundProcessViaPs(shellPid: number): Promise<string | null> {

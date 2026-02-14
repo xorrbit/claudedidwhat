@@ -71,6 +71,18 @@ export default tseslint.config(
     }
   },
 
+  // Tests use lightweight mocks/stubs and occasionally node-style requires.
+  // Keep test linting enabled, but relax production-focused strict rules.
+  {
+    files: ['tests/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'security/detect-non-literal-fs-filename': 'off'
+    }
+  },
+
   // Prettier must be last
   eslintConfigPrettier
 )

@@ -274,6 +274,7 @@ export function useInputWaiting(
     let pollInFlight = false
 
     const pollWaitingSessions = async () => {
+      if (document.visibilityState === 'hidden') return
       if (pollInFlight) return
       pollInFlight = true
 
@@ -410,7 +411,6 @@ export function useInputWaiting(
       cancelled = true
       window.clearInterval(intervalId)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reads activeSessionIdRef.current internally
   }, [sessionIds])
 
   useEffect(() => {

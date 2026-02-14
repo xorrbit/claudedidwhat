@@ -39,6 +39,8 @@ import {
   assertAutomationBootstrapResult,
   assertFiniteNumber,
   assertBoolean,
+  assertSessionId,
+  assertString,
   assertNonEmptyString,
 } from './security/validate-ipc-params'
 import { isTrustedRendererUrl } from './security/trusted-renderer'
@@ -56,6 +58,7 @@ function isWSL(): boolean {
 let mainWindow: BrowserWindow | null = null
 let automationApiService: AutomationApiService | null = null
 let rendererReady = false
+const MAX_TERMINAL_SELECTION_TEXT_LENGTH = 1_048_576
 
 interface PendingAutomationRequest {
   resolve: (sessionId: string) => void
@@ -270,7 +273,9 @@ function registerIpcHandlers() {
   ipcMain.on(TERMINAL_MENU_CHANNELS.SHOW, (event, sessionId: string, hasSelection: boolean, selectionText: string) => {
     if (!validateIpcSender(event)) return
     try {
+      assertSessionId(sessionId, 'sessionId')
       assertBoolean(hasSelection, 'hasSelection')
+      assertString(selectionText, 'selectionText', MAX_TERMINAL_SELECTION_TEXT_LENGTH)
     } catch {
       return
     }

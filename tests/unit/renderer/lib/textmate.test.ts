@@ -101,7 +101,10 @@ describe('TextMateService', () => {
   })
 
   it('gracefully handles null onig.wasm', async () => {
-    mockGrammarAPI({ wasmBinary: null })
+    mockGrammarAPI({
+      wasmBinary: null,
+      scanResult: makeGrammarScanResult([makeGrammar()]),
+    })
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const service = await getService()
@@ -126,7 +129,7 @@ describe('TextMateService', () => {
     const service = await getService()
     await service.initialize()
 
-    expect(mockLoadWASM).toHaveBeenCalledTimes(1)
+    expect(mockLoadWASM).not.toHaveBeenCalled()
     expect(mockSetTokensProvider).not.toHaveBeenCalled()
   })
 
@@ -171,7 +174,10 @@ describe('TextMateService', () => {
 
   it('handles initialization failure gracefully', async () => {
     const fakeWasm = new Uint8Array([0x00])
-    mockGrammarAPI({ wasmBinary: fakeWasm })
+    mockGrammarAPI({
+      wasmBinary: fakeWasm,
+      scanResult: makeGrammarScanResult([makeGrammar()]),
+    })
     mockLoadWASM.mockRejectedValueOnce(new Error('WASM load failed'))
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
@@ -199,7 +205,7 @@ describe('TextMateService', () => {
     await service.initialize()
     await service.initialize()
 
-    expect(mockLoadWASM).toHaveBeenCalledTimes(1)
+    expect(mockLoadWASM).not.toHaveBeenCalled()
     expect(window.electronAPI.grammar.scan).toHaveBeenCalledTimes(1)
   })
 })

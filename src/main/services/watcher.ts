@@ -34,7 +34,8 @@ const IGNORED_EXTENSIONS = new Set(['.log', '.tmp'])
 const IGNORED_FILES = new Set(['.DS_Store'])
 
 function isIgnored(relativePath: string): boolean {
-  const segments = relativePath.split('/')
+  const normalizedPath = relativePath.replace(/\\/g, '/')
+  const segments = normalizedPath.split('/')
   for (const seg of segments) {
     if (IGNORED_DIRS.has(seg)) return true
   }

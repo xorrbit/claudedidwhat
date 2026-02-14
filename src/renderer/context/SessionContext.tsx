@@ -38,8 +38,8 @@ async function getDefaultDirectory(): Promise<string> {
   try {
     return await window.electronAPI.fs.getHomeDir()
   } catch {
-    // Fallback
-    return '/home'
+    // Cross-platform safe fallback if home-dir IPC fails.
+    return '/'
   }
 }
 
@@ -265,7 +265,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run on 0→non-zero transition; reads sessionsRef internally
   }, [hasSessions])
 
   // Subscribe to instant CWD updates via OSC 7 shell integration

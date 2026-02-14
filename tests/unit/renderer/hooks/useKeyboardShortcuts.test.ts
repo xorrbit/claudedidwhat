@@ -98,7 +98,7 @@ describe('useKeyboardShortcuts', () => {
 
     it('calls onTabSwitched after tab navigation with double rAF', () => {
       // Mock requestAnimationFrame
-      let rafCallbacks: (() => void)[] = []
+      const rafCallbacks: (() => void)[] = []
       vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
         rafCallbacks.push(cb as () => void)
         return rafCallbacks.length

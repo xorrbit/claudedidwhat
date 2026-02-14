@@ -219,7 +219,11 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
         const scale = (e as CustomEvent).detail.scale
         if (terminal) {
           terminal.options.fontSize = Math.round(BASE_TERMINAL_FONT_SIZE * scale)
-          try { fitAddon?.fit() } catch {}
+          try {
+            fitAddon?.fit()
+          } catch {
+            // Ignore fit errors while renderer/layout settles after scale changes.
+          }
         }
       }
       window.addEventListener('ui-scale-change', handleScaleChange)

@@ -280,6 +280,18 @@ describe('useSessions (SessionContext)', () => {
     expect(result.current.sessions[0].cwd).toBe('/home/test')
   })
 
+  it('falls back to root directory when getHomeDir fails', async () => {
+    vi.mocked(window.electronAPI.fs.getHomeDir).mockRejectedValueOnce(new Error('fs unavailable'))
+
+    const { result } = renderHook(() => useSessionContext(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.sessions).toHaveLength(1)
+    })
+
+    expect(result.current.sessions[0].cwd).toBe('/')
+  })
+
   it('throws error when used outside provider', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
@@ -623,7 +635,7 @@ describe('useSessions (SessionContext)', () => {
       vi.useRealTimers()
     })
 
-    it('falls back to /home when getHomeDir rejects', async () => {
+    it('falls back to / when getHomeDir rejects', async () => {
       vi.mocked(window.electronAPI.fs.getHomeDir).mockRejectedValue(new Error('permission denied'))
 
       const { result } = renderHook(() => useSessionContext(), { wrapper })
@@ -632,7 +644,7 @@ describe('useSessions (SessionContext)', () => {
         expect(result.current.sessions).toHaveLength(1)
       })
 
-      expect(result.current.sessions[0].cwd).toBe('/home')
+      expect(result.current.sessions[0].cwd).toBe('/')
     })
 
     it('skips polling updates while document is hidden', async () => {
