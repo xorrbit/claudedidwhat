@@ -61,6 +61,31 @@ describe('useInputWaiting', () => {
     expect(window.electronAPI.pty.getForegroundProcess).not.toHaveBeenCalledWith('s1')
   })
 
+  it('marks waiting for any recognized AI process, not just claude/codex', async () => {
+    window.electronAPI.pty.getForegroundProcess.mockImplementation(async (sessionId: string) => (
+      sessionId === 's2' ? 'aider' : null
+    ))
+
+    const sessions = [
+      { id: 's1', cwd: '/repo/one', name: 'one' },
+      { id: 's2', cwd: '/repo/two', name: 'two' },
+    ]
+
+    const { result } = renderHook(() => useInputWaiting(sessions, 's1'))
+
+    await act(async () => {
+      await flushAsync()
+    })
+
+    await act(async () => {
+      handlers.get('s2')?.('Waiting for input. Please continue?')
+      vi.advanceTimersByTime(1500)
+      await flushAsync()
+    })
+
+    expect(result.current.has('s2')).toBe(true)
+  })
+
   it('treats option-selection prompts as waiting hints', async () => {
     window.electronAPI.pty.getForegroundProcess.mockResolvedValue('claude')
     const sessions = [

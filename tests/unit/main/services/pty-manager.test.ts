@@ -399,6 +399,16 @@ describe('PtyManager', () => {
       await expect(manager.getForegroundProcess('session-1')).resolves.toBe('claude')
     })
 
+    it.each(['opencode', 'aider', 'gemini', 'goose', 'cline', 'amp', 'crush', 'openhands', 'auggie', 'droid', 'kilo', 'vibe', 'qwen', 'copilot', 'cursor-agent', 'kiro-cli'])(
+      'returns quick match for %s from node-pty process name',
+      async (name) => {
+        manager.spawn('session-1', '/home/user')
+        getPtyMock().process = name
+
+        await expect(manager.getForegroundProcess('session-1')).resolves.toBe(name)
+      }
+    )
+
     it('checks /proc foreground tpgid on Linux and returns null when shell is foreground', async () => {
       manager.spawn('session-1', '/home/user')
       getPtyMock().process = 'node'
@@ -437,6 +447,44 @@ describe('PtyManager', () => {
 
       await expect(manager.getForegroundProcess('session-1')).resolves.toBe('codex')
       expect(mockReadFileSync).toHaveBeenCalledWith('/proc/23456/cmdline', 'utf8')
+    })
+
+    it('detects hyphenated process names in Linux foreground cmdline', async () => {
+      manager.spawn('session-1', '/home/user')
+      getPtyMock().process = 'bash'
+      mockPlatform.mockReturnValue('linux')
+      mockReadFileSync
+        .mockReturnValueOnce(
+          '12345 (bash) S 120 12345 12345 34816 23456 0 0 0 0 0 0 0 0 20 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+        )
+        .mockReturnValueOnce('/usr/local/bin/cursor-agent\0--stdio\0')
+
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('cursor-agent')
+    })
+
+    it('detects aider in Linux foreground process cmdline via python wrapper', async () => {
+      manager.spawn('session-1', '/home/user')
+      getPtyMock().process = 'bash'
+      mockPlatform.mockReturnValue('linux')
+      mockReadFileSync
+        .mockReturnValueOnce(
+          '12345 (bash) S 120 12345 12345 34816 23456 0 0 0 0 0 0 0 0 20 0 1 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+        )
+        .mockReturnValueOnce('/usr/bin/python3\0/home/user/.local/bin/aider\0--model\0claude-3.5-sonnet\0')
+
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('aider')
+    })
+
+    it('detects hyphenated process names via macOS ps output', async () => {
+      mockPlatform.mockReturnValue('darwin')
+      manager = new PtyManager()
+      manager.spawn('session-1', '/home/user')
+      getPtyMock().process = 'zsh'
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: '23456\n' })
+        .mockResolvedValueOnce({ stdout: '/usr/local/bin/kiro-cli --project .\n' })
+
+      await expect(manager.getForegroundProcess('session-1')).resolves.toBe('kiro-cli')
     })
 
     it('returns null when Linux proc lookup fails', async () => {

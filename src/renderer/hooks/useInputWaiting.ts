@@ -345,8 +345,7 @@ export function useInputWaiting(
 
         const nextWaitingIds = new Set<string>()
         for (const { sessionId, processName } of foregroundProcesses) {
-          const isAiForeground = processName === 'claude' || processName === 'codex'
-          if (!isAiForeground) {
+          if (!processName) {
             lastPromptHintTime.current.delete(sessionId)
             continue
           }

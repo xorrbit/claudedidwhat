@@ -271,6 +271,22 @@ describe('App', () => {
       expect(closeSession).not.toHaveBeenCalled()
     })
 
+    it('shows confirmation dialog when closing a tab running any recognized AI CLI', async () => {
+      window.electronAPI.pty.getForegroundProcess.mockResolvedValue('opencode')
+
+      render(<App />)
+
+      fireEvent.click(screen.getByTestId('tabbar-close-s2'))
+
+      await waitFor(() => {
+        const dialog = screen.getByTestId('mock-confirm-dialog')
+        expect(dialog).toBeInTheDocument()
+        expect(dialog).toHaveAttribute('data-message', expect.stringContaining('opencode'))
+      })
+
+      expect(closeSession).not.toHaveBeenCalled()
+    })
+
     it('closes tab immediately when no AI process is running', async () => {
       window.electronAPI.pty.getForegroundProcess.mockResolvedValue(null)
 
@@ -286,7 +302,8 @@ describe('App', () => {
     })
 
     it('closes tab immediately when a non-AI process is running', async () => {
-      window.electronAPI.pty.getForegroundProcess.mockResolvedValue('bash')
+      // getForegroundProcess returns null for unrecognized processes
+      window.electronAPI.pty.getForegroundProcess.mockResolvedValue(null)
 
       render(<App />)
 

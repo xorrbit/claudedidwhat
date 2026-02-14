@@ -126,11 +126,14 @@ function AppContent() {
     [sessions, setActiveSession]
   )
 
+  const [pendingCloseProcessName, setPendingCloseProcessName] = useState<string | null>(null)
+
   const guardedCloseSession = useCallback(async (id: string) => {
     try {
       const processName = await window.electronAPI.pty.getForegroundProcess(id)
-      if (processName === 'claude' || processName === 'codex') {
+      if (processName) {
         setPendingCloseSessionId(id)
+        setPendingCloseProcessName(processName)
         return
       }
     } catch {
@@ -143,11 +146,13 @@ function AppContent() {
     if (pendingCloseSessionId) {
       closeSession(pendingCloseSessionId)
       setPendingCloseSessionId(null)
+      setPendingCloseProcessName(null)
     }
   }, [pendingCloseSessionId, closeSession])
 
   const handleCancelClose = useCallback(() => {
     setPendingCloseSessionId(null)
+    setPendingCloseProcessName(null)
   }, [])
 
   const handleCloseTab = useCallback(() => {
@@ -313,7 +318,7 @@ function AppContent() {
       <ConfirmDialog
         isOpen={pendingCloseSessionId !== null}
         title="AI process running"
-        message="Claude or Codex is still running in this tab. Are you sure you want to close it?"
+        message={`${pendingCloseProcessName ?? 'An AI process'} is still running in this tab. Are you sure you want to close it?`}
         onConfirm={handleConfirmClose}
         onCancel={handleCancelClose}
       />

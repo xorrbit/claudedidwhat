@@ -16,7 +16,26 @@ import { detectShell, getShellName } from './shell'
 import { debugLog } from '../logger'
 
 const execFileAsync = promisify(execFile)
-const AI_PROCESS_NAMES = ['claude', 'codex'] as const
+const AI_PROCESS_NAMES = [
+  'claude',
+  'codex',
+  'opencode',
+  'aider',
+  'gemini',
+  'goose',
+  'cline',
+  'amp',
+  'crush',
+  'openhands',
+  'auggie',
+  'droid',
+  'kilo',
+  'vibe',
+  'qwen',
+  'copilot',
+  'cursor-agent',
+  'kiro-cli',
+] as const
 const AI_PROCESS_NAME_SET = new Set<string>(AI_PROCESS_NAMES)
 
 interface PtyCallbacks {
@@ -507,7 +526,7 @@ export class PtyManager {
 
   /**
    * Get the foreground process for a PTY session.
-   * Returns only known AI assistant process names (`claude` / `codex`), otherwise null.
+   * Returns only known AI assistant process names, otherwise null.
    */
   async getForegroundProcess(sessionId: string): Promise<string | null> {
     const instance = this.instances.get(sessionId)
