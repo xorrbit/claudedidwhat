@@ -354,6 +354,19 @@ export class PtyManager {
   }
 
   /**
+   * Get all running AI processes across all PTY sessions.
+   * Returns an array of AI process names (e.g. ['claude', 'aider']).
+   */
+  async getRunningAIProcesses(): Promise<string[]> {
+    const results: string[] = []
+    for (const sessionId of this.instances.keys()) {
+      const process = await this.getForegroundProcess(sessionId)
+      if (process) results.push(process)
+    }
+    return results
+  }
+
+  /**
    * Get the current working directory of a PTY process.
    * Results are cached briefly to avoid repeated system calls.
    */

@@ -28,6 +28,8 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
     isTrustedRendererUrl: vi.fn(() => true),
     shellOpenExternal: vi.fn().mockResolvedValue(undefined),
     dialogShowOpenDialog: vi.fn().mockResolvedValue({ canceled: false, filePaths: ['/tmp'] }),
+    dialogShowMessageBox: vi.fn().mockResolvedValue({ response: 0 }),
+    ptyGetRunningAIProcesses: vi.fn().mockResolvedValue([]),
     execFile: vi.fn(),
     readFileSync: vi.fn(() => state.procVersion),
     nativeImageCreateFromPath: vi.fn(),
@@ -65,6 +67,7 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
       unmaximize: vi.fn(),
       isMaximized: vi.fn(() => false),
       close: vi.fn(),
+      destroy: vi.fn(),
       getPosition: vi.fn(() => [111, 222]),
       setPosition: vi.fn(),
     }
@@ -96,6 +99,8 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
     mocks.readFileSync.mockImplementation(() => state.procVersion)
     mocks.shellOpenExternal.mockResolvedValue(undefined)
     mocks.dialogShowOpenDialog.mockResolvedValue({ canceled: false, filePaths: ['/tmp'] })
+    mocks.dialogShowMessageBox.mockResolvedValue({ response: 0 })
+    mocks.ptyGetRunningAIProcesses.mockResolvedValue([])
     mocks.automationStart.mockResolvedValue(undefined)
     mocks.automationStop.mockResolvedValue(undefined)
     mocks.appGetPath.mockReturnValue('/tmp/cdw-test-user-data')
@@ -108,7 +113,7 @@ const { state, mocks, resetState, makeWindow } = vi.hoisted(() => {
 
 vi.mock('@main/ipc/pty', () => ({
   registerPtyHandlers: mocks.registerPtyHandlers,
-  ptyManager: { killAll: mocks.ptyKillAll },
+  ptyManager: { killAll: mocks.ptyKillAll, getRunningAIProcesses: mocks.ptyGetRunningAIProcesses },
 }))
 
 vi.mock('@main/ipc/git', () => ({
@@ -197,6 +202,7 @@ vi.mock('electron', () => {
     },
     dialog: {
       showOpenDialog: mocks.dialogShowOpenDialog,
+      showMessageBox: mocks.dialogShowMessageBox,
     },
     nativeImage: {
       createFromPath: mocks.nativeImageCreateFromPath,
@@ -409,5 +415,102 @@ describe('main/index', () => {
 
     mainModule.sendToRenderer('pty:data', 'hello', 1)
     expect(win.webContents.send).toHaveBeenCalledWith('pty:data', 'hello', 1)
+  })
+
+  describe('close confirmation', () => {
+    it('destroys window immediately when no AI processes are running', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue([])
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      expect(win.destroy).toHaveBeenCalledTimes(1)
+      expect(mocks.dialogShowMessageBox).not.toHaveBeenCalled()
+    })
+
+    it('shows confirmation dialog when AI processes are running', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue(['claude', 'aider'])
+      mocks.dialogShowMessageBox.mockResolvedValue({ response: 1 })
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      expect(mocks.dialogShowMessageBox).toHaveBeenCalledTimes(1)
+      const [, options] = mocks.dialogShowMessageBox.mock.calls[0]
+      expect(options.message).toContain('Claude')
+      expect(options.message).toContain('Aider')
+    })
+
+    it('destroys window when user confirms close in dialog', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue(['claude'])
+      mocks.dialogShowMessageBox.mockResolvedValue({ response: 0 })
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      expect(win.destroy).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps window open when user cancels close in dialog', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue(['claude'])
+      mocks.dialogShowMessageBox.mockResolvedValue({ response: 1 })
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      expect(win.destroy).not.toHaveBeenCalled()
+    })
+
+    it('deduplicates process names in dialog message', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue(['claude', 'claude', 'aider'])
+      mocks.dialogShowMessageBox.mockResolvedValue({ response: 1 })
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      const [, options] = mocks.dialogShowMessageBox.mock.calls[0]
+      expect(options.message).toBe('Claude, Aider are still running. Close anyway?')
+    })
+
+    it('uses singular form for single AI process', async () => {
+      await importMain()
+      await resolveWhenReady()
+
+      const win = state.createdWindows[0]
+      mocks.ptyGetRunningAIProcesses.mockResolvedValue(['claude'])
+      mocks.dialogShowMessageBox.mockResolvedValue({ response: 1 })
+
+      const closeHandler = win._windowHandlers.get('close')!
+      closeHandler({ preventDefault: vi.fn() })
+      await flushMicrotasks()
+
+      const [, options] = mocks.dialogShowMessageBox.mock.calls[0]
+      expect(options.message).toBe('Claude is still running. Close anyway?')
+    })
   })
 })

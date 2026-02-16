@@ -155,6 +155,30 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  mainWindow.on('close', (event) => {
+    event.preventDefault()
+    const win = mainWindow!
+    ptyManager.getRunningAIProcesses().then(async (processes) => {
+      if (processes.length === 0) {
+        win.destroy()
+        return
+      }
+      const unique = [...new Set(processes)]
+      const names = unique.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(', ')
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'warning',
+        buttons: ['Close', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        title: 'AI processes still running',
+        message: `${names} ${unique.length === 1 ? 'is' : 'are'} still running. Close anyway?`,
+      })
+      if (response === 0) {
+        win.destroy()
+      }
+    })
+  })
+
   mainWindow.on('closed', () => {
     rejectPendingAutomationRequests('Main window was closed')
     mainWindow = null
