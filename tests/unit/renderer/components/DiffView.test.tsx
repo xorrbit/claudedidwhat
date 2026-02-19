@@ -385,7 +385,7 @@ describe('DiffView', () => {
 
       await screen.findByTestId('mock-diff-editor')
       const noWrapProps = diffEditorMock.mock.calls.at(-1)?.[0] as { options: Record<string, unknown> }
-      expect(noWrapProps.options.wordWrap).toBeUndefined()
+      expect(noWrapProps.options.wordWrap).toBe('off')
 
       rerender(
         <DiffView
@@ -397,6 +397,37 @@ describe('DiffView', () => {
       )
       const wrapProps = diffEditorMock.mock.calls.at(-1)?.[0] as { options: Record<string, unknown> }
       expect(wrapProps.options.wordWrap).toBe('on')
+    })
+
+    it('explicitly sets wordWrap to off when toggling from on to off', async () => {
+      const diffEditorMock = vi.mocked(DiffEditor)
+      const diff = { original: 'before', modified: 'after' }
+
+      const { rerender } = render(
+        <DiffView
+          filePath="wrap-toggle.ts"
+          diffContent={diff}
+          isLoading={false}
+          wordWrap={true}
+        />
+      )
+
+      await screen.findByTestId('mock-diff-editor')
+      const onProps = diffEditorMock.mock.calls.at(-1)?.[0] as { options: Record<string, unknown> }
+      expect(onProps.options.wordWrap).toBe('on')
+
+      rerender(
+        <DiffView
+          filePath="wrap-toggle.ts"
+          diffContent={diff}
+          isLoading={false}
+          wordWrap={false}
+        />
+      )
+      const offProps = diffEditorMock.mock.calls.at(-1)?.[0] as { options: Record<string, unknown> }
+      // Must be explicitly 'off', not undefined — Monaco's updateOptions
+      // won't reset a previously-set wordWrap if the key is simply absent.
+      expect(offProps.options.wordWrap).toBe('off')
     })
 
     it('changes Monaco options when viewMode changes', async () => {

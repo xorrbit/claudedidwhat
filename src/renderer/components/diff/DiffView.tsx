@@ -99,9 +99,9 @@ const BASE_EDITOR_OPTIONS = {
 }
 
 // Pre-computed per-mode options (stable references for memoization)
-const OPTIONS_AUTO = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false }
-const OPTIONS_UNIFIED = { ...BASE_EDITOR_OPTIONS, renderSideBySide: false }
-const OPTIONS_SPLIT = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false }
+const OPTIONS_AUTO = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false, wordWrap: 'off' as const }
+const OPTIONS_UNIFIED = { ...BASE_EDITOR_OPTIONS, renderSideBySide: false, wordWrap: 'off' as const }
+const OPTIONS_SPLIT = { ...BASE_EDITOR_OPTIONS, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: false, wordWrap: 'off' as const }
 const OPTIONS_AUTO_WRAP = { ...OPTIONS_AUTO, wordWrap: 'on' as const }
 const OPTIONS_UNIFIED_WRAP = { ...OPTIONS_UNIFIED, wordWrap: 'on' as const }
 const OPTIONS_SPLIT_WRAP = { ...OPTIONS_SPLIT, wordWrap: 'on' as const }
