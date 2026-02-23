@@ -65,6 +65,7 @@ export default defineConfig({
       '@main': resolve(__dirname, 'src/main'),
       '@shared': resolve(__dirname, 'src/shared'),
       // Mock monaco-editor in tests (Vite 7 can't resolve its entry point)
+      'monaco-editor/esm/vs/editor/editor.worker?worker': resolve(__dirname, 'tests/__mocks__/monaco-editor-worker.ts'),
       'monaco-editor': resolve(__dirname, 'tests/__mocks__/monaco-editor.ts'),
     },
   },

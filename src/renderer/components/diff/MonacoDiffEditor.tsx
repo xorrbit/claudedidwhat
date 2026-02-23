@@ -1,5 +1,15 @@
 import { DiffEditor, loader } from '@monaco-editor/react'
 import * as monaco from 'monaco-editor'
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
+
+// Monaco creates web workers via blob URLs by default, which are blocked by
+// production CSP (script-src 'self'). Vite's ?worker import bundles the worker
+// as a separate file loaded from the app origin, avoiding the blob URL entirely.
+window.MonacoEnvironment = {
+  getWorker() {
+    return new EditorWorker()
+  },
+}
 
 interface MonacoDiffEditorProps {
   original: string
