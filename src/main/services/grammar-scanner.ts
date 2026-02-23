@@ -125,12 +125,12 @@ export class GrammarScanner {
     }
 
     const possiblePaths = [
+      // Packaged app: extraResources copies onig.wasm to the Resources directory
+      join(process.resourcesPath || '', 'onig.wasm'),
       // Development: relative to src/main/services/
       join(__dirname, '../../../node_modules/vscode-oniguruma/release/onig.wasm'),
-      // Production: relative to dist/main/
+      // Production (unpackaged): relative to dist/main/
       join(__dirname, '../../node_modules/vscode-oniguruma/release/onig.wasm'),
-      // Packaged app: in app.asar
-      join(process.resourcesPath || '', 'node_modules/vscode-oniguruma/release/onig.wasm'),
     ]
 
     for (const wasmPath of possiblePaths) {

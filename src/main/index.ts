@@ -358,7 +358,7 @@ app.whenReady().then(async () => {
   // Dev mode is excluded: Vite HMR needs WebSocket (ws:) connections and unsafe-eval,
   // and onHeadersReceived applies to all responses which breaks the dev server.
   if (!isDev) {
-    const csp = "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self';"
+    const csp = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self';"
     session.defaultSession.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (details, callback) => {
       callback({
         responseHeaders: {

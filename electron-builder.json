@@ -13,6 +13,12 @@
   "nodeGypRebuild": false,
   "buildDependenciesFromSource": false,
   "asar": true,
+  "extraResources": [
+    {
+      "from": "node_modules/vscode-oniguruma/release/onig.wasm",
+      "to": "onig.wasm"
+    }
+  ],
   "mac": {
     "target": [
       {
