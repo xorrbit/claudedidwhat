@@ -142,6 +142,93 @@ describe('PtyManager', () => {
       expect(firstPty.kill).toHaveBeenCalled()
     })
 
+    it('old onExit does not delete new instance when session is re-spawned', () => {
+      // Regression: when spawn() replaces an instance for the same sessionId,
+      // the old PTY's asynchronous onExit must not delete the new instance
+      // from the map.  Without the identity guard, the new instance is
+      // orphaned: writes become no-ops and output stops (blank terminal).
+      //
+      // Use distinct PTY mocks so we can verify exactly which PTY receives
+      // kill/write calls.
+      const oldPty = {
+        pid: 111, process: 'bash',
+        onData: vi.fn(), onExit: vi.fn(),
+        write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
+      }
+      const newPty = {
+        pid: 222, process: 'bash',
+        onData: vi.fn(), onExit: vi.fn(),
+        write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
+      }
+      mockPtySpawn
+        .mockReturnValueOnce(oldPty)
+        .mockReturnValueOnce(newPty)
+
+      // First spawn
+      manager.spawn('session-1', '/home/user', undefined, {
+        onData: vi.fn(), onExit: vi.fn(),
+      })
+
+      // Second spawn — this.kill() sends SIGHUP to old PTY
+      manager.spawn('session-1', '/home/user', undefined, {
+        onData: vi.fn(), onExit: vi.fn(),
+      })
+      expect(oldPty.kill).toHaveBeenCalledTimes(1) // from this.kill()
+
+      // Old PTY's onExit fires asynchronously
+      const oldExitHandler = oldPty.onExit.mock.calls[0][0]
+      oldExitHandler({ exitCode: 0 })
+
+      // Old PTY must NOT be killed again by onExit (guard skips it)
+      expect(oldPty.kill).toHaveBeenCalledTimes(1)
+      // New PTY must NOT be killed at all
+      expect(newPty.kill).not.toHaveBeenCalled()
+
+      // Writes must reach the NEW PTY
+      manager.write('session-1', 'test')
+      expect(newPty.write).toHaveBeenCalledWith('test')
+      expect(oldPty.write).not.toHaveBeenCalled()
+    })
+
+    it('old onExit does not clear cwd/foreground caches for new instance', () => {
+      const oldPty = {
+        pid: 111, process: 'bash',
+        onData: vi.fn(), onExit: vi.fn(),
+        write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
+      }
+      const newPty = {
+        pid: 222, process: 'bash',
+        onData: vi.fn(), onExit: vi.fn(),
+        write: vi.fn(), resize: vi.fn(), kill: vi.fn(),
+      }
+      mockPtySpawn
+        .mockReturnValueOnce(oldPty)
+        .mockReturnValueOnce(newPty)
+
+      manager.spawn('session-1', '/home/user', undefined, {
+        onData: vi.fn(), onExit: vi.fn(),
+      })
+
+      // Re-spawn
+      manager.spawn('session-1', '/home/user', undefined, {
+        onData: vi.fn(), onExit: vi.fn(),
+      })
+
+      // Populate CWD cache for the NEW instance via OSC 7
+      const newDataHandler = newPty.onData.mock.calls[0][0]
+      newDataHandler('\x1b]7;file://host/project\x07')
+
+      // Old onExit fires — must not clear the new instance's cache
+      const oldExitHandler = oldPty.onExit.mock.calls[0][0]
+      oldExitHandler({ exitCode: 0 })
+
+      // CWD should still reflect the new instance's value
+      mockPlatform.mockReturnValue('win32') // skip /proc and lsof
+      return manager.getCwd('session-1').then((cwd) => {
+        expect(cwd).toBe('/project')
+      })
+    })
+
     it('throws when cwd does not exist', () => {
       mockExistsSync.mockReturnValue(false)
 
@@ -227,11 +314,56 @@ describe('PtyManager', () => {
       manager.spawn('session-1', '/home/user', undefined, { onData, onExit })
 
       const ptyMock = getPtyMock()
+      ptyMock.kill.mockClear()
       const exitHandler = ptyMock.onExit.mock.calls[0][0]
 
       exitHandler({ exitCode: 0 })
 
       expect(onExit).toHaveBeenCalledWith(0)
+      // Must call pty.kill() to close the master fd and prevent FD leaks
+      expect(ptyMock.kill).toHaveBeenCalled()
+    })
+
+    it('closes pty fd on natural exit to prevent fd leak', () => {
+      // Regression: when a shell exits naturally (user types "exit"),
+      // pty.kill() must be called to close the master fd (/dev/ptmx).
+      // Without this, every exited shell leaks a file descriptor.
+      const onData = vi.fn()
+      const onExit = vi.fn()
+
+      manager.spawn('session-1', '/home/user', undefined, { onData, onExit })
+
+      const ptyMock = getPtyMock()
+      ptyMock.kill.mockClear()
+      const exitHandler = ptyMock.onExit.mock.calls[0][0]
+
+      exitHandler({ exitCode: 0 })
+
+      expect(ptyMock.kill).toHaveBeenCalledTimes(1)
+      // Session should be removed from instances — further writes are no-ops
+      manager.write('session-1', 'should be ignored')
+      expect(ptyMock.write).not.toHaveBeenCalled()
+    })
+
+    it('handles pty.kill() throwing in onExit handler', () => {
+      // If the pty is already torn down, kill() may throw.
+      // The onExit handler must not propagate the error.
+      const onData = vi.fn()
+      const onExit = vi.fn()
+
+      manager.spawn('session-1', '/home/user', undefined, { onData, onExit })
+
+      const ptyMock = getPtyMock()
+      // Use mockImplementationOnce so the throw doesn't leak into later tests
+      ptyMock.kill.mockImplementationOnce(() => {
+        throw new Error('pty already destroyed')
+      })
+      const exitHandler = ptyMock.onExit.mock.calls[0][0]
+
+      // Should not throw
+      exitHandler({ exitCode: 1 })
+
+      expect(onExit).toHaveBeenCalledWith(1)
     })
 
     it('throws wrapped error when pty spawn fails', () => {

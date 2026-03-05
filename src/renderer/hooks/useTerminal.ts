@@ -184,8 +184,8 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
           webglAddon.dispose()
         })
         terminal.loadAddon(webglAddon)
-      } catch (e) {
-        console.warn('WebGL addon failed to load, using canvas renderer:', e)
+      } catch {
+        // WebGL not available — DOM renderer is used automatically
       }
 
       // Right-click context menu

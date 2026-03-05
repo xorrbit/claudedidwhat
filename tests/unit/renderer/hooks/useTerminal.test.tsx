@@ -311,4 +311,5 @@ describe('useTerminal', () => {
     expect(window.electronAPI.pty.kill).toHaveBeenCalledWith('session-5')
     expect(terminal.dispose).toHaveBeenCalledTimes(1)
   })
+
 })

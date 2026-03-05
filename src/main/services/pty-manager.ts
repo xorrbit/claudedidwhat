@@ -303,9 +303,23 @@ export class PtyManager {
 
     ptyProcess.onExit(({ exitCode }) => {
       instance.callbacks.onExit(exitCode)
-      this.instances.delete(sessionId)
-      this.cwdCache.delete(sessionId)
-      this.foregroundProcessCache.delete(sessionId)
+      // Only clean up if this instance is still the registered one.
+      // When spawn() is called for the same sessionId, the old PTY is
+      // killed and a new instance replaces it in the map.  The old PTY's
+      // onExit fires asynchronously and must not delete the new instance
+      // — doing so orphans the new PTY (writes become no-ops, output
+      // stops) while its fd leaks.
+      if (this.instances.get(sessionId) === instance) {
+        // Close the master fd — node-pty does not auto-close it on exit.
+        try {
+          instance.pty.kill()
+        } catch {
+          // Already dead — ignore
+        }
+        this.instances.delete(sessionId)
+        this.cwdCache.delete(sessionId)
+        this.foregroundProcessCache.delete(sessionId)
+      }
     })
 
     this.instances.set(sessionId, instance)
