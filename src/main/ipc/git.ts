@@ -34,12 +34,12 @@ export function registerGitHandlers(ipcMain: IpcMain) {
     return gitService.getFileDiff(dir, filePath, baseBranch)
   })
 
-  ipcMain.handle(GIT_CHANNELS.GET_FILE_CONTENT, async (event, dir: string, filePath: string, ref?: string) => {
+  ipcMain.handle(GIT_CHANNELS.GET_FILE_CONTENT, async (event, dir: string, filePath: string, ref?: string, maxSize?: number) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender')
     assertNonEmptyString(dir, 'dir')
     assertNonEmptyString(filePath, 'filePath')
     assertOptionalString(ref, 'ref')
-    return gitService.getFileContent(dir, filePath, ref)
+    return gitService.getFileContent(dir, filePath, ref, typeof maxSize === 'number' ? maxSize : undefined)
   })
 
   ipcMain.handle(GIT_CHANNELS.FIND_GIT_ROOT, (event, dir: string) => {

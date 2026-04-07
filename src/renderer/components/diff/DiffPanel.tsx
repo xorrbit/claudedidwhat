@@ -34,6 +34,8 @@ export const DiffPanel = memo(function DiffPanel({
     isDiffLoading,
     error,
     gitRoot,
+    fileListMode,
+    setFileListMode,
     selectFile,
     refresh,
   } = useGitDiff(isActive
@@ -287,9 +289,13 @@ export const DiffPanel = memo(function DiffPanel({
           {/* Header text — clips naturally when collapsed */}
           <div className="flex-1 min-w-0 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-obsidian-accent animate-glow-pulse flex-shrink-0" />
-            <span className="text-xs font-medium text-obsidian-text uppercase tracking-wider whitespace-nowrap">
-              Changes
-            </span>
+            <button
+              className="text-xs font-medium text-obsidian-text uppercase tracking-wider whitespace-nowrap hover:text-obsidian-accent transition-colors duration-150 cursor-pointer"
+              onClick={() => setFileListMode(fileListMode === 'changes' ? 'all' : 'changes')}
+              title={fileListMode === 'changes' ? 'Show all files' : 'Show only changes'}
+            >
+              {fileListMode === 'changes' ? 'Changes' : 'All'}
+            </button>
             {files.length > 0 && (
               <span className="text-2xs font-mono text-obsidian-text-muted bg-obsidian-float/50 px-1.5 py-0.5 rounded flex-shrink-0">
                 {files.length}
@@ -308,6 +314,7 @@ export const DiffPanel = memo(function DiffPanel({
               isLoading={isLoading}
               isCollapsed={isCollapsed}
               isGitRepo={gitRoot !== null}
+              fileListMode={fileListMode}
             />
           </div>
         )}

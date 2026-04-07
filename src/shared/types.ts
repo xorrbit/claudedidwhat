@@ -38,6 +38,7 @@ export const FS_CHANNELS = {
   SELECT_DIRECTORY: 'fs:selectDirectory',
   GET_HOME_DIR: 'fs:getHomeDir',
   LIST_SUBDIRECTORIES: 'fs:listSubdirectories',
+  LIST_FILES: 'fs:listFiles',
 } as const
 
 // PTY types
@@ -146,7 +147,7 @@ export interface ElectronAPI {
     getMainBranch: (dir: string) => Promise<string | null>
     getChangedFiles: (dir: string, baseBranch?: string) => Promise<ChangedFile[]>
     getFileDiff: (dir: string, filePath: string, baseBranch?: string) => Promise<DiffContent | null>
-    getFileContent: (dir: string, filePath: string, ref?: string) => Promise<string | null>
+    getFileContent: (dir: string, filePath: string, ref?: string, maxSize?: number) => Promise<string | null>
     findGitRoot: (dir: string) => Promise<string | null>
   }
   fs: {
@@ -157,6 +158,7 @@ export interface ElectronAPI {
     selectDirectory: () => Promise<string | null>
     getHomeDir: () => Promise<string>
     listSubdirectories: (dir: string) => Promise<string[]>
+    listFiles: (dir: string, limit?: number) => Promise<string[]>
   }
   grammar: {
     scan: () => Promise<GrammarScanResult>

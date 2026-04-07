@@ -97,7 +97,7 @@ describe('preload electronAPI bridge', () => {
     expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_MAIN_BRANCH, '/repo')
     expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_CHANGED_FILES, '/repo', 'main')
     expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_FILE_DIFF, '/repo', 'a.ts', 'main')
-    expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_FILE_CONTENT, '/repo', 'a.ts', 'HEAD')
+    expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.GET_FILE_CONTENT, '/repo', 'a.ts', 'HEAD', undefined)
     expect(mockInvoke).toHaveBeenCalledWith(GIT_CHANNELS.FIND_GIT_ROOT, '/repo')
 
     expect(mockInvoke).toHaveBeenCalledWith(FS_CHANNELS.WATCH_START, 's1', '/repo')

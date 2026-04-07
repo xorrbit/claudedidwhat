@@ -1,7 +1,7 @@
 import simpleGit, { SimpleGit, StatusResult } from 'simple-git'
 import { ChangedFile, DiffContent, FileStatus } from '@shared/types'
 import { existsSync } from 'fs'
-import { readFile, realpath } from 'fs/promises'
+import { readFile, realpath, stat } from 'fs/promises'
 import { join, resolve, dirname } from 'path'
 import { debugLog } from '../logger'
 import { isPathInside } from '../security/path-utils'
@@ -457,7 +457,8 @@ export class GitService {
   async getFileContent(
     dir: string,
     filePath: string,
-    ref?: string
+    ref?: string,
+    maxSize?: number
   ): Promise<string | null> {
     if (ref && !isValidRef(ref)) return null
     const result = this.getGitWithRoot(dir)
@@ -472,9 +473,18 @@ export class GitService {
         const readDir = result?.gitRoot || dir
         const safePath = await this.resolveReadableRepoPath(readDir, filePath)
         if (!safePath) return null
+        if (maxSize !== undefined) {
+          const stats = await stat(safePath)
+          if (stats.size > maxSize) {
+            throw new Error(`FILE_TOO_LARGE:${stats.size}`)
+          }
+        }
         return await readFile(safePath, 'utf-8')
       }
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith('FILE_TOO_LARGE:')) {
+        throw error
+      }
       console.error('Error getting file content:', error)
       return null
     }

@@ -23,6 +23,7 @@ const mockFs = {
   stopWatching: vi.fn(),
   onFileChange: vi.fn(() => () => {}),
   getHomeDir: vi.fn(),
+  listFiles: vi.fn(),
 }
 
 describe('useGitDiff', () => {
@@ -36,8 +37,10 @@ describe('useGitDiff', () => {
 
     mockGit.getChangedFiles.mockResolvedValue([])
     mockGit.getFileDiff.mockResolvedValue(null)
+    mockGit.getFileContent.mockResolvedValue(null)
     mockGit.findGitRoot.mockResolvedValue('/test/dir')
     mockFs.watchStart.mockResolvedValue(true)
+    mockFs.listFiles.mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -703,6 +706,206 @@ describe('useGitDiff', () => {
       // Should not call getChangedFiles when not in a git repo
       expect(result.current.files).toEqual([])
       expect(result.current.isLoading).toBe(false)
+    })
+  })
+
+  describe('all mode', () => {
+    it('loads all files via listFiles when mode is set to all', async () => {
+      mockFs.listFiles.mockResolvedValue(['src/app.ts', 'src/index.ts', 'README.md'])
+
+      const { result } = renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
+      )
+
+      // Let initial load complete
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Switch to all mode
+      act(() => {
+        result.current.setFileListMode('all')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(mockFs.listFiles).toHaveBeenCalledWith('/test/dir', 100)
+      expect(result.current.fileListMode).toBe('all')
+      expect(result.current.files).toEqual([
+        { path: 'src/app.ts', status: 'M' },
+        { path: 'src/index.ts', status: 'M' },
+        { path: 'README.md', status: 'M' },
+      ])
+    })
+
+    it('uses getFileContent instead of getFileDiff when selecting a file in all mode', async () => {
+      mockFs.listFiles.mockResolvedValue(['src/app.ts', 'src/index.ts'])
+      mockGit.getFileContent.mockResolvedValue('const x = 1')
+
+      const { result } = renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
+      )
+
+      // Let initial load complete
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Switch to all mode
+      act(() => {
+        result.current.setFileListMode('all')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Select a file
+      act(() => {
+        result.current.selectFile('src/app.ts')
+      })
+
+      // Let the file content load
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should have used getFileContent, NOT getFileDiff
+      expect(mockGit.getFileContent).toHaveBeenCalledWith('/test/dir', 'src/app.ts', undefined, 5 * 1024 * 1024)
+      expect(mockGit.getFileDiff).not.toHaveBeenCalled()
+      // Content should be presented as identical original/modified (no diff highlights)
+      expect(result.current.diffContent).toEqual({
+        original: 'const x = 1',
+        modified: 'const x = 1',
+      })
+    })
+
+    it('works in non-git repos (uses cwd when gitRoot is null)', async () => {
+      mockGit.findGitRoot.mockResolvedValue(null)
+      mockFs.listFiles.mockResolvedValue(['file1.txt', 'file2.txt'])
+      mockGit.getFileContent.mockResolvedValue('hello world')
+
+      const { result } = renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/not-a-repo' })
+      )
+
+      // Let initial load complete (gitRoot resolves to null)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Switch to all mode
+      act(() => {
+        result.current.setFileListMode('all')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should use cwd since gitRoot is null
+      expect(mockFs.listFiles).toHaveBeenCalledWith('/not-a-repo', 100)
+      expect(result.current.files).toHaveLength(2)
+
+      // Select a file — should load content even without git
+      act(() => {
+        result.current.selectFile('file1.txt')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(mockGit.getFileContent).toHaveBeenCalledWith('/not-a-repo', 'file1.txt', undefined, 5 * 1024 * 1024)
+      expect(result.current.diffContent).toEqual({
+        original: 'hello world',
+        modified: 'hello world',
+      })
+    })
+
+    it('does not call getFileDiff during background refresh in all mode', async () => {
+      mockFs.listFiles.mockResolvedValue(['src/app.ts'])
+      mockGit.getFileContent.mockResolvedValue('content v1')
+
+      const { result } = renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Switch to all mode and select a file
+      act(() => {
+        result.current.setFileListMode('all')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      act(() => {
+        result.current.selectFile('src/app.ts')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      mockGit.getFileDiff.mockClear()
+      mockGit.getFileContent.mockClear()
+
+      // Refresh in all mode
+      mockFs.listFiles.mockResolvedValue(['src/app.ts'])
+      mockGit.getFileContent.mockResolvedValue('content v2')
+
+      act(() => {
+        result.current.refresh()
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      // Should never call getFileDiff in all mode
+      expect(mockGit.getFileDiff).not.toHaveBeenCalled()
+    })
+
+    it('switches back to changes mode and uses getFileDiff again', async () => {
+      mockGit.getChangedFiles.mockResolvedValue([{ path: 'changed.ts', status: 'M' }])
+      mockGit.getFileDiff.mockResolvedValue({ original: 'old', modified: 'new' })
+      mockFs.listFiles.mockResolvedValue(['src/app.ts'])
+      mockGit.getFileContent.mockResolvedValue('content')
+
+      const { result } = renderHook(() =>
+        useGitDiff({ sessionId: 'test-session', cwd: '/test/dir' })
+      )
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500)
+      })
+
+      // Switch to all mode
+      act(() => {
+        result.current.setFileListMode('all')
+      })
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0)
+      })
+
+      expect(result.current.fileListMode).toBe('all')
+
+      // Switch back to changes mode
+      act(() => {
+        result.current.setFileListMode('changes')
+      })
+
+      expect(result.current.fileListMode).toBe('changes')
+      // Should show changed files again
+      expect(result.current.files).toEqual([{ path: 'changed.ts', status: 'M' }])
     })
   })
 })

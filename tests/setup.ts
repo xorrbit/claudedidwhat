@@ -62,6 +62,7 @@ const mockElectronAPI = {
     onFileChange: vi.fn(() => () => {}),
     getHomeDir: vi.fn().mockResolvedValue('/home/test'),
     listSubdirectories: vi.fn().mockResolvedValue([]),
+    listFiles: vi.fn().mockResolvedValue([]),
   },
   grammar: {
     scan: vi.fn().mockResolvedValue({ grammars: [], errors: [] }),

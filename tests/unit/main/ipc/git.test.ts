@@ -108,7 +108,7 @@ describe('registerGitHandlers', () => {
     expect(mockGetMainBranch).toHaveBeenCalledWith('/repo')
     expect(mockGetChangedFiles).toHaveBeenCalledWith('/repo', 'main')
     expect(mockGetFileDiff).toHaveBeenCalledWith('/repo', 'a.ts', 'main')
-    expect(mockGetFileContent).toHaveBeenCalledWith('/repo', 'a.ts', 'HEAD~1')
+    expect(mockGetFileContent).toHaveBeenCalledWith('/repo', 'a.ts', 'HEAD~1', undefined)
     expect(mockFindGitRoot).toHaveBeenCalledWith('/repo/subdir')
   })
 })

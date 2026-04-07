@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChangedFile, DiffContent } from '@shared/types'
 import { subscribeFileChanged, subscribeWatcherError } from '../lib/eventDispatchers'
 
+export type FileListMode = 'changes' | 'all'
+
 interface UseGitDiffOptions {
   sessionId: string
   cwd: string
@@ -17,6 +19,8 @@ interface UseGitDiffReturn {
   isDiffLoading: boolean
   error: string | null
   gitRoot: string | null
+  fileListMode: FileListMode
+  setFileListMode: (mode: FileListMode) => void
   selectFile: (path: string) => void
   refresh: () => void
 }
@@ -25,9 +29,14 @@ const MAX_CACHE_SIZE = 50
 const REACTIVATION_REFRESH_DELAY_MS = 50
 const MIN_REACTIVATION_REFRESH_INTERVAL_MS = 2000
 const DIFF_FETCH_DEFER_MS = 0
+const ALL_FILES_LIMIT = 100
+const ALL_MODE_MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
 export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseGitDiffOptions): UseGitDiffReturn {
-  const [files, setFiles] = useState<ChangedFile[]>([])
+  const [fileListMode, setFileListModeState] = useState<FileListMode>('changes')
+  const fileListModeRef = useRef<FileListMode>(fileListMode)
+  const [changedFiles, setChangedFiles] = useState<ChangedFile[]>([])
+  const [allFiles, setAllFiles] = useState<ChangedFile[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<DiffContent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -102,7 +111,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
   // Load changed files and refresh diff if a file is selected
   const loadFiles = useCallback(async () => {
     if (!gitRoot) {
-      setFiles([])
+      setChangedFiles([])
       setError(null)
       setIsLoading(false)
       return
@@ -116,7 +125,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
       // Bail if a newer request has been issued
       if (requestId !== loadRequestId.current) return
 
-      setFiles((prev) => {
+      setChangedFiles((prev) => {
         if (
           prev.length === changedFiles.length &&
           prev.every((f, i) => f.path === changedFiles[i].path && f.status === changedFiles[i].status)
@@ -152,7 +161,8 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
         // Skip expensive diff refresh for background tabs
         if (!enabledRef.current) return
 
-        // Refresh diff content for currently selected file
+        // Refresh diff content for currently selected file (skip in "all" mode)
+        if (fileListModeRef.current === 'all') return
         try {
           const diff = await window.electronAPI.git.getFileDiff(gitRoot, selectedPath)
 
@@ -181,7 +191,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     } catch (err) {
       if (requestId !== loadRequestId.current) return
       setError(err instanceof Error ? err.message : 'Failed to load files')
-      setFiles([])
+      setChangedFiles([])
     } finally {
       if (requestId === loadRequestId.current) {
         setIsLoading(false)
@@ -277,7 +287,15 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     const loadDiff = async () => {
       const dir = gitRoot || cwd
       try {
-        const diff = await window.electronAPI.git.getFileDiff(dir, filePath)
+        let diff: DiffContent | null
+        if (fileListModeRef.current === 'all') {
+          // In "all" mode, load file content (not a git diff).
+          // Pass maxSize to avoid reading huge/binary files into memory.
+          const content = await window.electronAPI.git.getFileContent(dir, filePath, undefined, ALL_MODE_MAX_FILE_SIZE)
+          diff = content !== null ? { original: content, modified: content } : null
+        } else {
+          diff = await window.electronAPI.git.getFileDiff(dir, filePath)
+        }
         if (!cancelled) {
           setDiffContent(diff)
           // Store in cache using captured filePath
@@ -286,9 +304,22 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
           }
         }
       } catch (err) {
-        console.error('Failed to load diff:', err)
         if (!cancelled) {
-          setDiffContent(null)
+          // Show a friendly message for files that are too large
+          const errMsg = err instanceof Error ? err.message : ''
+          if (errMsg.includes('FILE_TOO_LARGE')) {
+            const sizeStr = errMsg.split(':')[1]
+            const sizeMB = sizeStr ? (parseInt(sizeStr, 10) / (1024 * 1024)).toFixed(1) : '?'
+            const placeholder: DiffContent = {
+              original: '',
+              modified: `File too large to display (${sizeMB} MB)`,
+            }
+            setDiffContent(placeholder)
+            setCacheEntry(filePath, placeholder)
+          } else {
+            console.error('Failed to load diff:', err)
+            setDiffContent(null)
+          }
         }
       } finally {
         if (!cancelled) {
@@ -321,8 +352,8 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     let cancelled = false
 
     const debouncedRefresh = () => {
-      // Skip refresh if window hidden, already refreshing, or tab inactive
-      if (document.hidden || isRefreshing || !enabledRef.current) return
+      // Skip refresh if window hidden, already refreshing, tab inactive, or in "all" mode
+      if (document.hidden || isRefreshing || !enabledRef.current || fileListModeRef.current === 'all') return
 
       if (debounceTimer) {
         clearTimeout(debounceTimer)
@@ -341,7 +372,7 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     const startFallbackPolling = () => {
       if (fallbackInterval || cancelled) return
       fallbackInterval = setInterval(() => {
-        if (!document.hidden && !isRefreshing && enabledRef.current) {
+        if (!document.hidden && !isRefreshing && enabledRef.current && fileListModeRef.current !== 'all') {
           loadFilesRef.current?.()
         }
       }, 5000)
@@ -405,11 +436,56 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     }
   }, [getCacheEntry])
 
+  // Shared helper: fetch all files and update state. Returns a promise so
+  // callers (effect / refresh) can chain or cancel as needed.
+  const loadAllFilesRequestId = useRef(0)
+  const loadAllFiles = useCallback((dir: string) => {
+    const requestId = ++loadAllFilesRequestId.current
+    setIsLoading(true)
+    return window.electronAPI.fs.listFiles(dir, ALL_FILES_LIMIT).then((paths) => {
+      if (requestId !== loadAllFilesRequestId.current) return
+      setAllFiles(paths.map((p) => ({ path: p, status: 'M' as const })))
+      setIsLoading(false)
+    }).catch(() => {
+      if (requestId !== loadAllFilesRequestId.current) return
+      setAllFiles([])
+      setIsLoading(false)
+    })
+  }, [])
+
+  // Load all files when in "all" mode
+  useEffect(() => {
+    if (fileListMode !== 'all' || !enabled) return
+
+    // Use gitRoot if available, otherwise fall back to cwd (non-git repos)
+    const dir = gitRoot ?? cwd
+    if (!dir) return
+
+    loadAllFiles(dir)
+  }, [fileListMode, enabled, gitRoot, cwd, loadAllFiles])
+
+  const files = fileListMode === 'all' ? allFiles : changedFiles
+
   const refresh = useCallback(() => {
     diffCache.current.clear()
-    setIsLoading(true)
-    loadFiles()
-  }, [loadFiles])
+    if (fileListMode === 'all') {
+      const dir = gitRoot ?? cwd
+      if (dir) loadAllFiles(dir)
+    } else {
+      setIsLoading(true)
+      loadFiles()
+    }
+  }, [fileListMode, loadFiles, gitRoot, cwd, loadAllFiles])
+
+  const handleSetFileListMode = useCallback((mode: FileListMode) => {
+    fileListModeRef.current = mode
+    setFileListModeState(mode)
+    // Clear diff cache — diffs and file contents are not interchangeable
+    diffCache.current.clear()
+    setDiffContent(null)
+    setSelectedFile(null)
+    selectedFileRef.current = null
+  }, [])
 
   return {
     files,
@@ -419,6 +495,8 @@ export function useGitDiff({ sessionId, cwd, enabled = true, gitRootHint }: UseG
     isDiffLoading,
     error,
     gitRoot,
+    fileListMode,
+    setFileListMode: handleSetFileListMode,
     selectFile,
     refresh,
   }

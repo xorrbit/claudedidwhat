@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { ChangedFile } from '@shared/types'
+import type { FileListMode } from '../../hooks/useGitDiff'
 import { FileListItem } from './FileListItem'
 import catjamGif from '../../../../assets/catjam.gif'
 
@@ -10,6 +11,7 @@ interface FileListProps {
   isLoading: boolean
   isCollapsed?: boolean
   isGitRepo?: boolean
+  fileListMode?: FileListMode
 }
 
 export const FileList = memo(function FileList({
@@ -19,6 +21,7 @@ export const FileList = memo(function FileList({
   isLoading,
   isCollapsed,
   isGitRepo = true,
+  fileListMode = 'changes',
 }: FileListProps) {
   if (isLoading && files.length === 0) {
     return (
@@ -41,19 +44,29 @@ export const FileList = memo(function FileList({
   }
 
   if (files.length === 0) {
+    const emptyMessage = fileListMode === 'all'
+      ? 'No files found'
+      : isGitRepo
+        ? 'No changes detected'
+        : 'Not in a git repo'
+    const emptySubtext = fileListMode === 'all'
+      ? 'Directory appears to be empty'
+      : isGitRepo
+        ? 'Working tree is clean'
+        : 'Working tree booked today off'
     return (
       <div className="p-6 text-center">
         <img
           src={catjamGif}
           alt="Catjam"
           className="w-12 h-12 mx-auto mb-3"
-          style={isGitRepo ? undefined : { transform: 'scaleX(-1)' }}
+          style={isGitRepo || fileListMode === 'all' ? undefined : { transform: 'scaleX(-1)' }}
         />
         <p className="text-xs text-obsidian-text-muted">
-          {isGitRepo ? 'No changes detected' : 'Not in a git repo'}
+          {emptyMessage}
         </p>
         <p className="text-2xs text-obsidian-text-ghost mt-1">
-          {isGitRepo ? 'Working tree is clean' : 'Working tree booked today off'}
+          {emptySubtext}
         </p>
       </div>
     )
@@ -69,6 +82,7 @@ export const FileList = memo(function FileList({
           onSelect={onSelectFile}
           index={index}
           isCollapsed={isCollapsed}
+          hideStatus={fileListMode === 'all'}
         />
       ))}
     </div>

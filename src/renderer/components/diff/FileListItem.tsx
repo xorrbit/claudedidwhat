@@ -7,6 +7,7 @@ interface FileListItemProps {
   onSelect: (path: string) => void
   index: number
   isCollapsed?: boolean
+  hideStatus?: boolean
 }
 
 const STATUS_CONFIG: Record<FileStatus, { color: string; bg: string; label: string }> = {
@@ -23,6 +24,7 @@ export const FileListItem = memo(function FileListItem({
   onSelect,
   index,
   isCollapsed,
+  hideStatus,
 }: FileListItemProps) {
   const config = STATUS_CONFIG[file.status]
   const handleClick = useCallback(() => onSelect(file.path), [onSelect, file.path])
@@ -68,8 +70,8 @@ export const FileListItem = memo(function FileListItem({
         )}
       </div>
 
-      {/* Status badge — hidden when collapsed */}
-      {!isCollapsed && (
+      {/* Status badge — hidden when collapsed or in "all" mode */}
+      {!isCollapsed && !hideStatus && (
         <span className={`
           w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-2xs font-mono font-semibold
           ${config.color} ${config.bg}

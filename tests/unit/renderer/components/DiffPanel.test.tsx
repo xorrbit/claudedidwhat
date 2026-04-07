@@ -47,6 +47,9 @@ describe('DiffPanel', () => {
     isLoading: false,
     isDiffLoading: false,
     error: null as string | null,
+    gitRoot: '/project' as string | null,
+    fileListMode: 'changes' as const,
+    setFileListMode: vi.fn(),
     selectFile: vi.fn(),
     refresh: vi.fn(),
   }

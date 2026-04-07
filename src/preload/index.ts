@@ -78,8 +78,8 @@ const electronAPI: ElectronAPI = {
     getFileDiff: (dir: string, filePath: string, baseBranch?: string): Promise<DiffContent | null> =>
       ipcRenderer.invoke(GIT_CHANNELS.GET_FILE_DIFF, dir, filePath, baseBranch),
 
-    getFileContent: (dir: string, filePath: string, ref?: string): Promise<string | null> =>
-      ipcRenderer.invoke(GIT_CHANNELS.GET_FILE_CONTENT, dir, filePath, ref),
+    getFileContent: (dir: string, filePath: string, ref?: string, maxSize?: number): Promise<string | null> =>
+      ipcRenderer.invoke(GIT_CHANNELS.GET_FILE_CONTENT, dir, filePath, ref, maxSize),
 
     findGitRoot: (dir: string): Promise<string | null> =>
       ipcRenderer.invoke(GIT_CHANNELS.FIND_GIT_ROOT, dir),
@@ -116,6 +116,9 @@ const electronAPI: ElectronAPI = {
 
     listSubdirectories: (dir: string): Promise<string[]> =>
       ipcRenderer.invoke(FS_CHANNELS.LIST_SUBDIRECTORIES, dir),
+
+    listFiles: (dir: string, limit?: number): Promise<string[]> =>
+      ipcRenderer.invoke(FS_CHANNELS.LIST_FILES, dir, limit),
   },
 
   grammar: {
