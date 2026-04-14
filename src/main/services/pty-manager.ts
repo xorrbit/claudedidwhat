@@ -269,6 +269,8 @@ export class PtyManager {
           ...process.env,
           TERM: 'xterm-256color',
           COLORTERM: 'truecolor',
+          TERM_PROGRAM: 'ClaudeDidWhat?!',
+          TERM_PROGRAM_VERSION: app.getVersion(),
           CDW_SESSION_ID: sessionId,
           ...integration.env,
         },
