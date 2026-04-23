@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { WebglAddon } from '@xterm/addon-webgl'
 import { subscribePtyData, subscribePtyExit } from '../lib/eventDispatchers'
 import '@xterm/xterm/css/xterm.css'
 
@@ -176,17 +175,6 @@ export function useTerminal({ sessionId, cwd, bootstrapCommands, onExit }: UseTe
         }
         return true // Let xterm handle everything else
       })
-
-      // Load WebGL addon for better performance (must be after open)
-      try {
-        const webglAddon = new WebglAddon()
-        webglAddon.onContextLoss(() => {
-          webglAddon.dispose()
-        })
-        terminal.loadAddon(webglAddon)
-      } catch {
-        // WebGL not available — DOM renderer is used automatically
-      }
 
       // Right-click context menu
       handleContextMenu = (e: MouseEvent) => {

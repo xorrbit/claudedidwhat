@@ -64,15 +64,6 @@ vi.mock('@xterm/addon-web-links', () => ({
   }),
 }))
 
-vi.mock('@xterm/addon-webgl', () => ({
-  WebglAddon: vi.fn(function MockWebglAddon() {
-    return {
-      onContextLoss: vi.fn(),
-      dispose: vi.fn(),
-    }
-  }),
-}))
-
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
 import { useTerminal } from '@renderer/hooks/useTerminal'
