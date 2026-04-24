@@ -433,6 +433,7 @@ export const DiffPanel = memo(function DiffPanel({
             isLoading={isDiffLoading || (isLoading && !!selectedFile)}
             viewMode={diffViewMode}
             wordWrap={wordWrap}
+            isActive={isActive}
           />
         </div>
       </div>

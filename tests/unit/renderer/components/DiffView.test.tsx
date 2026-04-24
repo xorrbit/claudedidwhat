@@ -430,6 +430,67 @@ describe('DiffView', () => {
       expect(offProps.options.wordWrap).toBe('off')
     })
 
+    it('mounts no Monaco editors when isActive is false', async () => {
+      const { container } = render(
+        <DiffView
+          filePath="inactive.ts"
+          diffContent={{ original: 'a', modified: 'b' }}
+          isLoading={false}
+          isActive={false}
+        />
+      )
+      // Early-return should skip the pool entirely — no Monaco, no pool div.
+      expect(screen.queryByTestId('mock-diff-editor')).not.toBeInTheDocument()
+      expect(container.querySelector('[data-file]')).not.toBeInTheDocument()
+    })
+
+    it('reapplies opacity on the active pool entry when isActive toggles back to true', async () => {
+      // Regression: when the pool remounts after an inactive period, children start
+      // at opacity: 0 from PoolRenderer's inline style. The opacity-sync effect
+      // must re-run on isActive change, otherwise the active file stays hidden
+      // until the user manually picks another file.
+      const { rerender, container } = render(
+        <DiffView
+          filePath="active.ts"
+          diffContent={{ original: 'a', modified: 'b' }}
+          isLoading={false}
+          isActive={true}
+        />
+      )
+
+      await screen.findByTestId('mock-diff-editor')
+      const activeInitial = container.querySelector('[data-file="active.ts"]') as HTMLElement
+      expect(activeInitial.style.opacity).toBe('1')
+
+      // Go inactive — pool unmounts.
+      rerender(
+        <DiffView
+          filePath="active.ts"
+          diffContent={{ original: 'a', modified: 'b' }}
+          isLoading={false}
+          isActive={false}
+        />
+      )
+      expect(container.querySelector('[data-file="active.ts"]')).not.toBeInTheDocument()
+
+      // Back to active — pool remounts with preserved state. Active entry must
+      // be visible without any other prop change (filePath unchanged).
+      rerender(
+        <DiffView
+          filePath="active.ts"
+          diffContent={{ original: 'a', modified: 'b' }}
+          isLoading={false}
+          isActive={true}
+        />
+      )
+
+      const activeAfter = container.querySelector('[data-file="active.ts"]') as HTMLElement
+      expect(activeAfter).toBeInTheDocument()
+      expect(activeAfter.style.opacity).toBe('1')
+      expect(activeAfter.style.pointerEvents).toBe('auto')
+      expect(activeAfter.style.zIndex).toBe('1')
+    })
+
     it('changes Monaco options when viewMode changes', async () => {
       const diffEditorMock = vi.mocked(DiffEditor)
       const diff = { original: 'before', modified: 'after' }

@@ -15,6 +15,11 @@ interface DiffViewProps {
   isLoading: boolean
   viewMode?: DiffViewMode
   wordWrap?: boolean
+  // When false, no Monaco editors are mounted. Each Monaco diff editor creates
+  // 2 WebGL2 contexts (minimap canvases, even with minimap disabled) — at 19+
+  // tabs that exceeds Chromium's 16-context per-renderer budget and triggers
+  // "Too many active WebGL contexts" with downstream focus/render breakage.
+  isActive?: boolean
 }
 
 const LANGUAGE_MAP: Record<string, string> = {
@@ -189,7 +194,7 @@ const PoolRenderer = memo(function PoolRenderer({
   )
 })
 
-export const DiffView = memo(function DiffView({ filePath, diffContent, isLoading, viewMode = 'auto', wordWrap = false }: DiffViewProps) {
+export const DiffView = memo(function DiffView({ filePath, diffContent, isLoading, viewMode = 'auto', wordWrap = false, isActive = true }: DiffViewProps) {
   const [pool, setPool] = useState<PoolEntry[]>([])
   const prevDiffRef = useRef<DiffContent | null>(null)
   const lruRef = useRef<string[]>([])
@@ -268,18 +273,27 @@ export const DiffView = memo(function DiffView({ filePath, diffContent, isLoadin
 
   // Toggle active editor via direct DOM manipulation — bypasses React entirely.
   // useLayoutEffect runs synchronously before paint, so no flash.
+  // isActive is in deps so opacity is reapplied when the pool is remounted after
+  // a tab switch (pool entries start at opacity 0 from their inline style).
   useLayoutEffect(() => {
     if (!poolRef.current) return
     for (const child of poolRef.current.children) {
       const el = child as HTMLElement
-      const isActive = el.dataset.file === filePath
-      el.style.opacity = isActive ? '1' : '0'
-      el.style.pointerEvents = isActive ? 'auto' : 'none'
-      el.style.zIndex = isActive ? '1' : '0'
+      const isCurrent = el.dataset.file === filePath
+      el.style.opacity = isCurrent ? '1' : '0'
+      el.style.pointerEvents = isCurrent ? 'auto' : 'none'
+      el.style.zIndex = isCurrent ? '1' : '0'
     }
-  }, [filePath, pool])
+  }, [filePath, pool, isActive])
 
   const isInPool = filePath ? pool.some((e) => e.path === filePath) : false
+
+  // Unmount all Monaco editors for inactive tabs to stay under the WebGL
+  // context limit. Pool state above is preserved in DiffView's own state,
+  // so switching back re-renders the pool with its prior contents.
+  if (!isActive) {
+    return <div className="h-full" />
+  }
 
   if (!filePath) {
     return (
