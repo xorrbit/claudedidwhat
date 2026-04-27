@@ -82,7 +82,7 @@ function detectWindowsShell(): ShellInfo {
 }
 
 export function getShellName(shellPath: string): string {
-  const baseName = shellPath.split('/').pop() || shellPath
+  const baseName = shellPath.split(/[/\\]/).pop() || shellPath
 
   const shellNames: Record<string, string> = {
     zsh: 'Zsh',

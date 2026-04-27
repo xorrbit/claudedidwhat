@@ -179,6 +179,17 @@ fi
 `
   writeFileSync(join(dir, '.zshrc'), zshRc, { mode: 0o600 })
 
+  // PowerShell integration: source user's profile then override prompt to emit OSC 7
+  const psScript = `if (Test-Path $PROFILE) { . $PROFILE }
+function global:prompt {
+    $path = $PWD.Path -replace '\\\\', '/'
+    if ($path -match '^[A-Za-z]:') { $path = '/' + $path }
+    [Console]::Write([char]27 + ']7;file://localhost' + $path + [char]7)
+    'PS ' + $PWD + '> '
+}
+`
+  writeFileSync(join(dir, 'powershell-integration.ps1'), psScript, { mode: 0o600 })
+
 }
 
 function getShellIntegration(shellPath: string): ShellIntegration {
@@ -205,6 +216,11 @@ function getShellIntegration(shellPath: string): ShellIntegration {
           '-C',
           `function __cdw_report_cwd --on-event fish_prompt; printf '\\e]7;file://%s%s\\a' (hostname) "$PWD"; end`,
         ],
+        env: {},
+      }
+    case 'powershell':
+      return {
+        args: ['-NoExit', '-ExecutionPolicy', 'Bypass', '-Command', `. '${join(dir, 'powershell-integration.ps1')}'`],
         env: {},
       }
     default:
@@ -293,7 +309,11 @@ export class PtyManager {
       const match = data.match(OSC7_REGEX)
       if (match) {
         try {
-          const newCwd = decodeURIComponent(match[1])
+          let newCwd = decodeURIComponent(match[1])
+          // Windows file URIs encode paths as /C:/Users/... — strip the leading slash
+          if (/^\/[A-Za-z]:\//.test(newCwd)) {
+            newCwd = newCwd.slice(1)
+          }
           this.cwdCache.set(sessionId, { cwd: newCwd, timestamp: Date.now() })
           instance.callbacks.onCwdChanged?.(newCwd)
         } catch {
