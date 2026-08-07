@@ -89,7 +89,7 @@ const BASE_EDITOR_OPTIONS = {
   fontSize: 13,
   lineHeight: 20,
   fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace",
-  fontLigatures: true,
+  fontLigatures: false,
   folding: true,
   lineNumbers: 'on' as const,
   renderLineHighlight: 'none' as const,
